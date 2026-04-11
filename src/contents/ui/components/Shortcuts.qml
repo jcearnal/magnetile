@@ -105,7 +105,7 @@ Item {
             ShortcutHandler {
                 name: "Magnetile: Activate layout " + modelData
                 text: "Magnetile: Activate layout " + modelData
-                sequence: "Meta+Num+" + modelData
+                sequence: "Ctrl+Alt+Shift+" + modelData
                 onActivated: {
                     activateLayout(modelData - 1);
                 }
