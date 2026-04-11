@@ -1,0 +1,32 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "gerritdevriese"
+            },
+            {
+                "Name": "Magnetile contributors"
+            }
+        ],
+        "Category": "Utilities",
+        "Description": "Utility for snapping windows into zones with connected tile resizing",
+        "EnabledByDefault": false,
+        "Icon": "preferences-desktop-virtual",
+        "Id": "magnetile",
+        "License": "GPL-3.0",
+        "Name": "Magnetile",
+        "ServiceTypes": [
+            "KWin/Script"
+        ],
+        "Version": "0.1.0",
+        "Website": "https://github.com/jcearnal/magnetile.git"
+    },
+    "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
+    "X-KDE-PluginKeyword": "magnetile",
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-API-Minimum-Version": "6.4",
+    "X-Plasma-APIX": "javascript",
+    "X-Plasma-MainScript": "ui/main.qml",
+    "X-Plasma-MainScriptX": "code/main.js"
+}
