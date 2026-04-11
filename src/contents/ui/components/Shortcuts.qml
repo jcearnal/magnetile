@@ -17,6 +17,7 @@ Item {
     signal moveActiveWindowRight()
     signal snapActiveWindow()
     signal snapAllWindows()
+    signal freeActiveWindow()
 
     ShortcutHandler {
         name: "Magnetile: Cycle layouts"
@@ -166,6 +167,15 @@ Item {
         sequence: "Meta+Space"
         onActivated: {
             snapAllWindows();
+        }
+    }
+
+    ShortcutHandler {
+        name: "Magnetile: Free active window"
+        text: "Magnetile: Free active window"
+        sequence: "Ctrl+Alt+F"
+        onActivated: {
+            freeActiveWindow();
         }
     }
 

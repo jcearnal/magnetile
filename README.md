@@ -86,6 +86,13 @@ windows on the same output, virtual desktop, activity, and layout. Windows that
 shared the moved edge are resized after mouse release so the group stays
 connected.
 
+### Free Movement
+
+Press `Ctrl+Alt+F` to free the active window from Magnetile drag snapping. If
+you press it while dragging a window, the current drop will stay at the custom
+size and position. Press any zone shortcut or snap shortcut to put the window
+back under Magnetile control.
+
 ### Multi-Monitor Presets
 
 Each KWin output can seed its own default layout. Runtime layout switching can
@@ -408,6 +415,7 @@ List of all available shortcuts:
 | Cycle layouts (reversed)                           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>  |
 | Toggle zone overlay                                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>                     |
 | Activate layout                                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1-9</kbd> |
+| Free active window                                 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>                     |
 | Move active window up                              | <kbd>Meta</kbd> + <kbd>Up</kbd>                                     |
 | Move active window down                            | <kbd>Meta</kbd> + <kbd>Down</kbd>                                   |
 | Move active window left                            | <kbd>Meta</kbd> + <kbd>Left</kbd>                                   |

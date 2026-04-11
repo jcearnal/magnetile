@@ -14,6 +14,7 @@ Item {
     property bool moving: false
     property bool moved: false
     property bool resizing: false
+    property bool freeMoving: false
     property var clientArea: new Object()
     property var cachedClientArea: new Object()
     property var displaySize: new Object()
@@ -265,11 +266,24 @@ Item {
             const newGeometry = zoneGeometry(currentLayout, zone, clientOutput(client));
             Utils.log("Moving client " + client.resourceClass.toString() + " to zone " + zone + " with geometry " + JSON.stringify(newGeometry));
             saveClientProperties(client, zone);
+            client.magnetileFreeMove = false;
             client.setMaximize(false, false);
             client.frameGeometry = newGeometry;
         } else {
             saveClientProperties(client, zone);
         }
+    }
+
+    function freeClient(client) {
+        if (!checkFilter(client))
+            return;
+
+        client.zone = -1;
+        client.layout = -1;
+        client.desktop = Workspace.currentDesktop;
+        client.activity = Workspace.currentActivity;
+        client.magnetileFreeMove = true;
+        client.magnetileResizeSnapshot = null;
     }
 
     function saveClientProperties(client, zone) {
@@ -794,8 +808,12 @@ Item {
                     moving = true;
                     moved = false;
                     resizing = false;
+                    freeMoving = client.magnetileFreeMove === true;
                     Utils.log("Move start " + client.resourceClass.toString());
-                    mainDialog.show();
+                    if (freeMoving)
+                        mainDialog.hide();
+                    else
+                        mainDialog.show();
                 }
                 if (client.resize) {
                     refreshClientAreaForClient(client);
@@ -806,6 +824,7 @@ Item {
                     moving = false;
                     moved = false;
                     resizing = true;
+                    freeMoving = false;
                 }
             }
         }
@@ -835,10 +854,13 @@ Item {
             if (moving) {
                 Utils.log("Move end " + client.resourceClass.toString());
                 if (moved) {
-                    if (mainDialog.visible)
+                    if (freeMoving) {
+                        freeClient(client);
+                    } else if (mainDialog.visible) {
                         moveClientToZone(client, highlightedZone);
-                    else
+                    } else {
                         saveClientProperties(client, -1);
+                    }
                 }
                 mainDialog.hide();
             } else if (resizing) {
@@ -852,6 +874,7 @@ Item {
             moving = false;
             moved = false;
             resizing = false;
+            freeMoving = false;
         }
 
         // fix from https://github.com/gerritdevriese/kzones/pull/25
@@ -1160,6 +1183,19 @@ Item {
         }
         onSnapAllWindows: {
             moveAllClientsToClosestZone();
+        }
+        onFreeActiveWindow: {
+            const client = Workspace.activeWindow;
+            if (!client || !checkFilter(client))
+                return;
+
+            freeClient(client);
+            if (moving && client.move) {
+                freeMoving = true;
+                highlightedZone = -1;
+                mainDialog.hide();
+            }
+            Utils.osd("Free movement enabled");
         }
     }
 

@@ -127,6 +127,8 @@ Magnetile tracks state as dynamic properties on KWin windows:
 - `client.activity`: activity captured when assigning the zone.
 - `client.oldGeometry`: previous floating geometry when restore behavior is enabled.
 - `client.magnetileResizeSnapshot`: temporary snapshot used during connected resize.
+- `client.magnetileFreeMove`: window-level override that prevents drag/drop
+  snapping until the window is explicitly snapped to a zone again.
 
 When adding new state, prefix Magnetile-specific temporary fields with `magnetile`.
 
@@ -187,6 +189,7 @@ Current default shortcuts avoid numpad dependency:
 - `Ctrl+Alt+Up/Down`: previous/next window in current zone.
 - `Meta+Space`: snap all windows.
 - `Meta+Shift+Space`: snap active window.
+- `Ctrl+Alt+F`: free active window from Magnetile drag snapping.
 - `Ctrl+Alt+C`: toggle zone overlay while moving.
 
 KDE keeps old bindings in `~/.config/kglobalshortcutsrc`. If shortcut defaults change, existing installs may need live KGlobalAccel updates or manual changes in System Settings.
