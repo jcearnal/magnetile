@@ -59,6 +59,7 @@
 
     button,
     input,
+    select,
     textarea {
       font: inherit;
     }
@@ -85,6 +86,7 @@
     }
 
     input,
+    select,
     textarea {
       width: 100%;
       border: 1px solid var(--border);
@@ -135,6 +137,10 @@
 
     .toolbar input[type="number"] {
       width: 88px;
+    }
+
+    .toolbar select {
+      width: 110px;
     }
 
     .layouts,
@@ -211,6 +217,19 @@
       border-top-left-radius: 6px;
     }
 
+    .padding-preview {
+      position: absolute;
+      border: 1px dashed color-mix(in srgb, var(--accent) 65%, var(--panel));
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      pointer-events: none;
+    }
+
+    .zone.active .padding-preview {
+      border-color: color-mix(in srgb, var(--accent-2) 75%, var(--panel));
+      background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+    }
+
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -268,6 +287,20 @@
         <label><input id="snapEdges" type="checkbox" checked> Edges</label>
         <label><input id="snapZones" type="checkbox" checked> Zones</label>
       </div>
+      <div class="toolbar">
+        <label>Preview
+          <select id="previewRatio">
+            <option value="16:9">16:9</option>
+            <option value="16:10">16:10</option>
+            <option value="21:9">21:9</option>
+            <option value="32:9">32:9</option>
+            <option value="4:3">4:3</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+        <label>Width <input id="previewWidth" type="number" min="100" step="1" value="1920"></label>
+        <label>Height <input id="previewHeight" type="number" min="100" step="1" value="1080"></label>
+      </div>
       <div class="canvas-wrap" id="canvas"></div>
       <p class="status" id="status"></p>
     </section>
@@ -322,6 +355,13 @@
 
     const el = id => document.getElementById(id);
     const canvas = el("canvas");
+    const previewRatios = {
+      "16:9": [1920, 1080],
+      "16:10": [1920, 1200],
+      "21:9": [3440, 1440],
+      "32:9": [5120, 1440],
+      "4:3": [1600, 1200]
+    };
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
@@ -333,6 +373,24 @@
 
     function activeZone() {
       return activeLayout().zones[zoneIndex] || null;
+    }
+
+    function previewSize() {
+      return {
+        width: Math.max(100, Number(el("previewWidth").value) || 1920),
+        height: Math.max(100, Number(el("previewHeight").value) || 1080)
+      };
+    }
+
+    function applyPreviewRatio() {
+      const selected = el("previewRatio").value;
+      if (selected !== "custom" && previewRatios[selected]) {
+        const [width, height] = previewRatios[selected];
+        el("previewWidth").value = width;
+        el("previewHeight").value = height;
+      }
+      const size = previewSize();
+      canvas.style.aspectRatio = `${size.width} / ${size.height}`;
     }
 
     function normalizeZone(zone) {
@@ -437,10 +495,17 @@
 
       el("layoutName").value = activeLayout().name || "";
       el("layoutPadding").value = activeLayout().padding || 0;
+      applyPreviewRatio();
 
       canvas.innerHTML = "";
       activeLayout().zones.forEach((zone, index) => {
         normalizeZone(zone);
+        const size = previewSize();
+        const padding = Math.max(0, Number(activeLayout().padding) || 0);
+        const zonePixelWidth = zone.width / 100 * size.width;
+        const zonePixelHeight = zone.height / 100 * size.height;
+        const insetX = clamp(padding, 0, Math.max(0, zonePixelWidth / 2));
+        const insetY = clamp(padding, 0, Math.max(0, zonePixelHeight / 2));
         const node = document.createElement("div");
         node.className = "zone" + (index === zoneIndex ? " active" : "");
         node.style.left = zone.x + "%";
@@ -448,7 +513,12 @@
         node.style.width = zone.width + "%";
         node.style.height = zone.height + "%";
         node.style.borderColor = zone.color || "";
-        node.innerHTML = `<span class="label">${index + 1}</span><span class="handle"></span>`;
+        node.innerHTML = `<span class="padding-preview"></span><span class="label">${index + 1}</span><span class="handle"></span>`;
+        const preview = node.querySelector(".padding-preview");
+        preview.style.left = insetX + "px";
+        preview.style.top = insetY + "px";
+        preview.style.right = insetX + "px";
+        preview.style.bottom = insetY + "px";
         node.onpointerdown = event => startDrag(event, index, event.target.classList.contains("handle"));
         canvas.append(node);
       });
@@ -573,6 +643,19 @@
       activeLayout().padding = Math.max(0, Number(event.target.value) || 0);
       render();
     };
+
+    el("previewRatio").onchange = () => {
+      applyPreviewRatio();
+      render();
+    };
+
+    for (const id of ["previewWidth", "previewHeight"]) {
+      el(id).oninput = () => {
+        el("previewRatio").value = "custom";
+        applyPreviewRatio();
+        render();
+      };
+    }
 
     for (const [id, key] of [["zoneX", "x"], ["zoneY", "y"], ["zoneWidth", "width"], ["zoneHeight", "height"]]) {
       el(id).oninput = event => {
