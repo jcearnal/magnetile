@@ -151,6 +151,9 @@ Flow:
    was separated by the layout padding gap, are resized to follow the new edge.
    Padded layouts preserve the measured gap between the resized window and the
    neighbor instead of collapsing the windows together.
+6. If the dragged edge would consume an adjacent neighbor past the minimum
+   tracked size, Magnetile constrains the dragged window before applying
+   neighbor geometry so the solver does not leave overlapping windows behind.
 
 Scope rules:
 

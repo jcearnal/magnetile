@@ -565,7 +565,7 @@ Item {
             return;
 
         const oldGeometry = rectEdges(snapshot.geometry);
-        const newGeometry = rectEdges(client.frameGeometry);
+        let newGeometry = rectEdges(client.frameGeometry);
         const resizeTolerance = resizeGapTolerance(config.layouts[clampLayoutIndex(snapshot.layout)]);
         const minSize = Math.max(1, geometryTolerance);
         const changed = {
@@ -577,6 +577,43 @@ Item {
 
         if (!changed.left && !changed.right && !changed.top && !changed.bottom)
             return;
+
+        let constrainedLeft = newGeometry.left;
+        let constrainedTop = newGeometry.top;
+        let constrainedRight = newGeometry.right;
+        let constrainedBottom = newGeometry.bottom;
+        for (let i = 0; i < snapshot.windows.length; i++) {
+            const item = snapshot.windows[i];
+            const oldOther = rectEdges(item.geometry);
+            const overlapsOldY = rangesOverlap(oldGeometry.top, oldGeometry.bottom, oldOther.top, oldOther.bottom);
+            const overlapsOldX = rangesOverlap(oldGeometry.left, oldGeometry.right, oldOther.left, oldOther.right);
+            const rightGap = oldOther.left - oldGeometry.right;
+            const leftGap = oldGeometry.left - oldOther.right;
+            const bottomGap = oldOther.top - oldGeometry.bottom;
+            const topGap = oldGeometry.top - oldOther.bottom;
+
+            if (changed.right && isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY)
+                constrainedRight = Math.min(constrainedRight, oldOther.right - preservedResizeGap(rightGap) - minSize);
+
+            if (changed.left && isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY)
+                constrainedLeft = Math.max(constrainedLeft, oldOther.left + preservedResizeGap(leftGap) + minSize);
+
+            if (changed.bottom && isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX)
+                constrainedBottom = Math.min(constrainedBottom, oldOther.bottom - preservedResizeGap(bottomGap) - minSize);
+
+            if (changed.top && isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX)
+                constrainedTop = Math.max(constrainedTop, oldOther.top + preservedResizeGap(topGap) + minSize);
+        }
+
+        const constrainedWidth = Math.round(constrainedRight - constrainedLeft);
+        const constrainedHeight = Math.round(constrainedBottom - constrainedTop);
+        if (constrainedWidth >= minSize && constrainedHeight >= minSize) {
+            newGeometry = rectEdges(roundedRect(constrainedLeft, constrainedTop, constrainedWidth, constrainedHeight));
+            if (!rectsClose(client.frameGeometry, Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height))) {
+                client.setMaximize(false, false);
+                client.frameGeometry = Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height);
+            }
+        }
 
         for (let i = 0; i < snapshot.windows.length; i++) {
             const item = snapshot.windows[i];
