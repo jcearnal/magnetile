@@ -88,7 +88,7 @@ Item {
             ShortcutHandler {
                 name: "Magnetile: Move active window to zone " + modelData
                 text: "Magnetile: Move active window to zone " + modelData
-                sequence: "Ctrl+Alt+Num+" + modelData
+                sequence: "Ctrl+Alt+" + modelData
                 onActivated: {
                     moveActiveWindowToZone(modelData - 1);
                 }
