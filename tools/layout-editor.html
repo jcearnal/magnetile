@@ -123,6 +123,20 @@
       margin-bottom: 10px;
     }
 
+    .toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toolbar input[type="checkbox"] {
+      width: auto;
+    }
+
+    .toolbar input[type="number"] {
+      width: 88px;
+    }
+
     .layouts,
     .zones {
       display: grid;
@@ -239,7 +253,7 @@
         <button id="moveLayoutDown">Down</button>
       </div>
       <label>Name <input id="layoutName"></label>
-      <label>Padding <input id="layoutPadding" type="number" min="0" step="1"></label>
+      <label>Padding in pixels <input id="layoutPadding" type="number" min="0" step="1"></label>
     </section>
 
     <section class="panel">
@@ -247,6 +261,12 @@
       <div class="toolbar">
         <button id="addZone" class="primary">Add zone</button>
         <button id="deleteZone" class="danger">Delete zone</button>
+      </div>
+      <div class="toolbar">
+        <label><input id="snapEnabled" type="checkbox" checked> Snap</label>
+        <label>Grid % <input id="snapStep" type="number" min="0.1" max="100" step="0.1" value="5"></label>
+        <label><input id="snapEdges" type="checkbox" checked> Edges</label>
+        <label><input id="snapZones" type="checkbox" checked> Zones</label>
       </div>
       <div class="canvas-wrap" id="canvas"></div>
       <p class="status" id="status"></p>
@@ -298,6 +318,7 @@
     let layoutIndex = 0;
     let zoneIndex = 0;
     let drag = null;
+    const snapTolerance = 1.25;
 
     const el = id => document.getElementById(id);
     const canvas = el("canvas");
@@ -320,6 +341,84 @@
       zone.width = clamp(Number(zone.width) || 10, 0.1, 100 - zone.x);
       zone.height = clamp(Number(zone.height) || 10, 0.1, 100 - zone.y);
       if (!zone.color) delete zone.color;
+    }
+
+    function snapConfig() {
+      return {
+        enabled: el("snapEnabled").checked,
+        step: Math.max(0.1, Number(el("snapStep").value) || 5),
+        edges: el("snapEdges").checked,
+        zones: el("snapZones").checked
+      };
+    }
+
+    function snapNumber(value, targets, tolerance) {
+      let snapped = value;
+      let best = tolerance;
+      for (const target of targets) {
+        const distance = Math.abs(value - target);
+        if (distance <= best) {
+          snapped = target;
+          best = distance;
+        }
+      }
+      return Number(snapped.toFixed(1));
+    }
+
+    function snapZone(zone, index, resize) {
+      const config = snapConfig();
+      if (!config.enabled) {
+        normalizeZone(zone);
+        return;
+      }
+
+      if (config.step > 0) {
+        if (resize) {
+          const right = Math.round((zone.x + zone.width) / config.step) * config.step;
+          const bottom = Math.round((zone.y + zone.height) / config.step) * config.step;
+          zone.width = right - zone.x;
+          zone.height = bottom - zone.y;
+        } else {
+          zone.x = Math.round(zone.x / config.step) * config.step;
+          zone.y = Math.round(zone.y / config.step) * config.step;
+        }
+      }
+
+      const xTargets = [];
+      const yTargets = [];
+      if (config.edges) {
+        xTargets.push(0, 100);
+        yTargets.push(0, 100);
+      }
+      if (config.zones) {
+        activeLayout().zones.forEach((other, otherIndex) => {
+          if (otherIndex === index) return;
+          xTargets.push(other.x, other.x + other.width);
+          yTargets.push(other.y, other.y + other.height);
+        });
+      }
+
+      if (resize) {
+        const right = snapNumber(zone.x + zone.width, xTargets, snapTolerance);
+        const bottom = snapNumber(zone.y + zone.height, yTargets, snapTolerance);
+        zone.width = right - zone.x;
+        zone.height = bottom - zone.y;
+      } else {
+        const snappedX = snapNumber(zone.x, xTargets, snapTolerance);
+        const snappedY = snapNumber(zone.y, yTargets, snapTolerance);
+        const snappedRight = snapNumber(zone.x + zone.width, xTargets, snapTolerance);
+        const snappedBottom = snapNumber(zone.y + zone.height, yTargets, snapTolerance);
+        if (Math.abs(snappedX - zone.x) <= Math.abs(snappedRight - (zone.x + zone.width)))
+          zone.x = snappedX;
+        else
+          zone.x = snappedRight - zone.width;
+        if (Math.abs(snappedY - zone.y) <= Math.abs(snappedBottom - (zone.y + zone.height)))
+          zone.y = snappedY;
+        else
+          zone.y = snappedBottom - zone.height;
+      }
+
+      normalizeZone(zone);
     }
 
     function render() {
@@ -410,6 +509,7 @@
         zone.x = clamp(Number((drag.zone.x + dx).toFixed(1)), 0, 100 - zone.width);
         zone.y = clamp(Number((drag.zone.y + dy).toFixed(1)), 0, 100 - zone.height);
       }
+      snapZone(zone, zoneIndex, drag.resize);
       render();
     };
 
@@ -479,7 +579,7 @@
         const zone = activeZone();
         if (!zone) return;
         zone[key] = Number(event.target.value);
-        normalizeZone(zone);
+        snapZone(zone, zoneIndex, key === "width" || key === "height");
         render();
       };
     }
