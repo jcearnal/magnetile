@@ -145,6 +145,10 @@ Flow:
    - desktop,
    - activity,
    - other tiled windows in the same scope.
+   If KWin script reloads have cleared Magnetile's dynamic window properties,
+   the snapshot path first recovers the resized window's layout/zone from its
+   current frame geometry across all configured layouts, then recovers other
+   same-layout windows in the resize scope.
 3. `onInteractiveMoveResizeFinished` calls `connectedResize(client)`.
 4. `connectedResize` compares the resized window's old and new edges.
 5. Adjacent windows whose old edge touched the resized edge, or whose old edge

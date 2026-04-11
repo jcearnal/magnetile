@@ -164,25 +164,58 @@ Item {
         return roundedRect(zoneX, zoneY, zoneWidth, zoneHeight);
     }
 
+    function matchZoneInLayout(client, layout) {
+        if (!checkFilter(client))
+            return -1;
+
+        const layoutIndex = clampLayoutIndex(layout);
+        const zones = config.layouts[layoutIndex].zones;
+        // loop through zones and compare with the geometries of the client
+        for (let i = 0; i < zones.length; i++) {
+            const geometry = zoneGeometry(layoutIndex, i, clientOutput(client));
+            if (rectsClose(client.frameGeometry, geometry)) {
+                // zone found, set it and exit the loop
+                client.zone = i;
+                client.layout = layoutIndex;
+                client.desktop = Workspace.currentDesktop;
+                client.activity = Workspace.currentActivity;
+                return i;
+            }
+        }
+        return -1;
+    }
+
     function matchZone(client) {
         if (!checkFilter(client))
             return -1;
 
         refreshClientAreaForClient(client);
         client.zone = -1;
-        // get all zones in the current layout
-        const zones = config.layouts[currentLayout].zones;
-        // loop through zones and compare with the geometries of the client
-        for (let i = 0; i < zones.length; i++) {
-            const geometry = zoneGeometry(currentLayout, i, clientOutput(client));
-            if (rectsClose(client.frameGeometry, geometry)) {
-                // zone found, set it and exit the loop
-                client.zone = i;
-                client.layout = currentLayout;
-                break;
-            }
-        }
+        matchZoneInLayout(client, currentLayout);
         return client.zone;
+    }
+
+    function matchZoneAnyLayout(client, preferredLayout) {
+        if (!checkFilter(client))
+            return -1;
+
+        refreshClientAreaForClient(client);
+        client.zone = -1;
+        const layoutsToCheck = [];
+        const preferred = clampLayoutIndex(preferredLayout !== undefined ? preferredLayout : currentLayout);
+        layoutsToCheck.push(preferred);
+        for (let i = 0; i < config.layouts.length; i++) {
+            if (layoutsToCheck.indexOf(i) === -1)
+                layoutsToCheck.push(i);
+
+        }
+        for (let i = 0; i < layoutsToCheck.length; i++) {
+            const zone = matchZoneInLayout(client, layoutsToCheck[i]);
+            if (zone !== -1)
+                return zone;
+
+        }
+        return -1;
     }
 
     function getWindowsInZone(zone, layout) {
@@ -514,10 +547,16 @@ Item {
             if (!checkFilter(window))
                 continue;
 
-            if (window === client || window.zone === undefined || window.zone === -1)
+            if (window === client)
                 continue;
 
+            if (window.zone === undefined || window.zone === -1)
+                matchZoneInLayout(window, layout);
+
             if (window.layout !== layout)
+                matchZoneInLayout(window, layout);
+
+            if (window.zone === undefined || window.zone === -1 || window.layout !== layout)
                 continue;
 
             if (clientOutput(window) !== output || !sameDesktop(window, desktop) || clientActivity(window) !== activity)
@@ -529,6 +568,9 @@ Item {
     }
 
     function snapshotResizeGroup(client) {
+        if (client.zone === undefined || client.zone === -1 || client.layout === undefined || client.layout === -1)
+            matchZoneAnyLayout(client, currentLayout);
+
         const layout = client.layout !== undefined ? client.layout : currentLayout;
         if (client.zone === undefined || client.zone === -1 || layout === undefined || layout === -1)
             return null;
