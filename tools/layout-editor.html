@@ -257,7 +257,7 @@
 <body>
   <header>
     <h1>Magnetile Layout Editor</h1>
-    <p>Edit percentage-based layouts visually, then copy the generated JSON into Magnetile's Layouts setting.</p>
+    <p>Edit percentage-based layouts visually, then copy the generated JSON into Magnetile's Layouts setting or save it as a file.</p>
   </header>
 
   <main class="grid">
@@ -317,9 +317,12 @@
       </div>
       <h3>JSON</h3>
       <div class="toolbar">
-        <button id="loadJson">Import JSON</button>
+        <button id="loadJson">Import pasted JSON</button>
+        <button id="openJson">Open JSON file</button>
+        <button id="saveJson">Save JSON file</button>
         <button id="copyJson">Copy JSON</button>
       </div>
+      <input id="jsonFile" type="file" accept="application/json,.json" hidden>
       <textarea id="json"></textarea>
     </section>
   </main>
@@ -551,6 +554,20 @@
       el("status").textContent = text;
     }
 
+    function importJsonText(text) {
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Expected a non-empty layout array.");
+      layouts = parsed;
+      layoutIndex = 0;
+      zoneIndex = 0;
+      render();
+    }
+
+    function layoutFileName() {
+      const name = (activeLayout().name || "magnetile-layouts").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return `${name || "magnetile-layouts"}.json`;
+    }
+
     function startDrag(event, index, resize) {
       zoneIndex = index;
       const rect = canvas.getBoundingClientRect();
@@ -677,16 +694,39 @@
 
     el("loadJson").onclick = () => {
       try {
-        const parsed = JSON.parse(el("json").value);
-        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Expected a non-empty layout array.");
-        layouts = parsed;
-        layoutIndex = 0;
-        zoneIndex = 0;
-        render();
-        setStatus("Imported JSON.");
+        importJsonText(el("json").value);
+        setStatus("Imported pasted JSON.");
       } catch (error) {
         setStatus(error.message);
       }
+    };
+
+    el("openJson").onclick = () => {
+      el("jsonFile").click();
+    };
+
+    el("jsonFile").onchange = async event => {
+      const [file] = event.target.files;
+      if (!file) return;
+      try {
+        importJsonText(await file.text());
+        setStatus(`Opened ${file.name}.`);
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        event.target.value = "";
+      }
+    };
+
+    el("saveJson").onclick = () => {
+      const blob = new Blob([el("json").value + "\n"], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = layoutFileName();
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus("Saved JSON file.");
     };
 
     el("copyJson").onclick = async () => {
