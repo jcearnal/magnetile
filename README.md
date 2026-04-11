@@ -16,8 +16,9 @@ contributors.
 ## Relationship to KZones
 
 Magnetile is not presented as an original clean-room replacement for KZones. It
-is derived from KZones and keeps KZones attribution in [NOTICE.md](./NOTICE.md).
-Because KZones is GPL-3.0, Magnetile is distributed under GPL-3.0 as well.
+is derived from [KZones](https://github.com/gerritdevriese/kzones) and keeps
+KZones attribution in [NOTICE.md](./NOTICE.md). Because KZones is GPL-3.0,
+Magnetile is distributed under GPL-3.0 as well.
 
 The goal is to preserve compatible KZones behavior while making targeted
 improvements for modern Plasma 6 Wayland workflows.
