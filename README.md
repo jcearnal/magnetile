@@ -88,10 +88,10 @@ connected.
 
 ### Free Movement
 
-Press `Ctrl+Alt+F` to free the active window from Magnetile drag snapping. If
-you press it while dragging a window, the current drop will stay at the custom
-size and position. Press any zone shortcut or snap shortcut to put the window
-back under Magnetile control.
+Press `Ctrl+Alt+F` to toggle free movement for the active window. If you press
+it while dragging a window, the current drop will stay at the custom size and
+position. Press `Ctrl+Alt+F` again, or use any zone shortcut or snap shortcut,
+to put the window back under Magnetile control.
 
 ### Multi-Monitor Presets
 

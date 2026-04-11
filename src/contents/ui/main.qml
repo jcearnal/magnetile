@@ -286,6 +286,19 @@ Item {
         client.magnetileResizeSnapshot = null;
     }
 
+    function toggleFreeClient(client) {
+        if (!checkFilter(client))
+            return false;
+
+        if (client.magnetileFreeMove === true) {
+            client.magnetileFreeMove = false;
+            return false;
+        }
+
+        freeClient(client);
+        return true;
+    }
+
     function saveClientProperties(client, zone) {
         Utils.log("Saving geometry for client " + client.resourceClass.toString());
         // save current geometry
@@ -1189,13 +1202,16 @@ Item {
             if (!client || !checkFilter(client))
                 return;
 
-            freeClient(client);
+            const enabled = toggleFreeClient(client);
             if (moving && client.move) {
-                freeMoving = true;
+                freeMoving = enabled;
                 highlightedZone = -1;
-                mainDialog.hide();
+                if (enabled)
+                    mainDialog.hide();
+                else
+                    mainDialog.show();
             }
-            Utils.osd("Free movement enabled");
+            Utils.osd(enabled ? "Free movement enabled" : "Free movement disabled");
         }
     }
 

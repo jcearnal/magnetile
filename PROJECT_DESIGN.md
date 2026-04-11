@@ -128,7 +128,8 @@ Magnetile tracks state as dynamic properties on KWin windows:
 - `client.oldGeometry`: previous floating geometry when restore behavior is enabled.
 - `client.magnetileResizeSnapshot`: temporary snapshot used during connected resize.
 - `client.magnetileFreeMove`: window-level override that prevents drag/drop
-  snapping until the window is explicitly snapped to a zone again.
+  snapping until toggled off or until the window is explicitly snapped to a
+  zone again.
 
 When adding new state, prefix Magnetile-specific temporary fields with `magnetile`.
 
