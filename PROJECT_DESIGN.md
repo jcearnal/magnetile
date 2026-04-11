@@ -24,6 +24,11 @@ Magnetile should preserve existing KZones behavior unless a change is explicitly
 
 Magnetile is derived from KZones. KZones is GPL-3.0, so Magnetile is GPL-3.0 unless upstream KZones grants relicensing permission. Keep KZones attribution and Magnetile attribution in `NOTICE.md`.
 
+Magnetile-specific changes are developed with AI coding assistance. Treat that
+as an implementation detail, not a licensing shortcut: preserve the GPL-3.0
+license, keep upstream KZones attribution, and document Magnetile improvements
+as derivative work rather than clean-room authorship.
+
 ## Current Architecture
 
 The package root is `src/`.

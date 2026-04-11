@@ -4,47 +4,102 @@
 
 KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
-Magnetile starts from the KZones zone overlay and shortcut workflow, then adds Fluid Tile-style connected resizing: when a tiled window is manually resized, adjacent tiled windows resize to fill the gap automatically.
+Magnetile is a GPL-3.0 derivative of KZones. It keeps the core FancyZones-style
+zone workflow that made KZones useful, then extends it for a Wayland-only KDE
+Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
+visual layout editor helper.
+
+Development of the Magnetile-specific changes is AI-assisted. Human review,
+testing, packaging, and licensing responsibility remain with the Magnetile
+contributors.
+
+## Relationship to KZones
+
+Magnetile is not presented as an original clean-room replacement for KZones. It
+is derived from KZones and keeps KZones attribution in [NOTICE.md](./NOTICE.md).
+Because KZones is GPL-3.0, Magnetile is distributed under GPL-3.0 as well.
+
+The goal is to preserve compatible KZones behavior while making targeted
+improvements for modern Plasma 6 Wayland workflows.
+
+### Magnetile Improvements
+
+Compared with the original KZones base, Magnetile adds or is developing:
+
+- Connected resizing: adjacent tiled windows resize after a manual edge resize.
+- KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
+- Resolution-independent geometry fixes for multi-monitor layouts, including
+  outputs that do not start at `x=0, y=0`.
+- Per-monitor layout defaults through `monitorLayoutsJson`.
+- Independent active-layout tracking per output and optionally per virtual
+  desktop.
+- A visual layout editor helper for creating, renaming, duplicating, deleting,
+  reordering, previewing, importing, and exporting JSON layouts.
+- Editor support for snapping, padding preview, preview aspect ratios, and
+  saved JSON layout files.
+- Documentation for the current architecture, schema choices, local testing,
+  and known KWin scripted-config limitations.
 
 ## Features
 
 ### Zone Selector
 
-The Zone Selector is a small widget that appears when you drag a window to the top of the screen. It allows you to snap the window to a zone regardless of the current layout.
+Drag a window toward the top of the current monitor to reveal a compact layout
+picker. Drop onto a zone preview to send the window there without cycling
+layouts first.
 
 ![](./media/selector.gif)
 
 ### Zone Overlay
 
-The Zone Overlay is a fullscreen overlay that appears when you move a window. It shows all zones from the current layout and the window will snap to the zone you drop it on.
+While moving a window, Magnetile can draw the active layout over the current
+monitor. Releasing the window over a highlighted zone snaps it into that zone.
 
 ![](./media/dragdrop.gif)
 
 ### Edge Snapping
 
-Edge Snapping allows you to snap windows to zones by dragging them to the edge of the screen.
+Optional edge snapping lets a window target nearby zones when the pointer is
+close to a monitor edge. Disable KDE's built-in edge snap first if the two
+behaviors conflict.
 
 ![](./media/edgesnapping.gif)
 
 ### Multiple Layouts
 
-Create multiple layouts and cycle between them.
+Keep several percentage-based layouts and switch between them with shortcuts,
+the selector, or per-monitor defaults.
 
 ![](./media/layouts.gif)
 
 ### Keyboard Shortcuts
 
-Magnetile comes with a set of [shortcuts](#shortcuts) to move your windows between zones and layouts.
+Shortcut actions cover moving windows to zones, switching layouts, moving to
+neighboring zones, cycling windows in a zone, and snapping all visible windows.
 
 ![](./media/shortcuts.gif)
 
 ### Connected Resizing
 
-When a tiled window is resized by mouse, Magnetile detects adjacent tiled windows on the same monitor, virtual desktop, activity, and layout. Adjacent windows sharing the resized edge are resized after the mouse is released so the tiled area stays connected.
+When you resize a tiled window with the mouse, Magnetile checks nearby tiled
+windows on the same output, virtual desktop, activity, and layout. Windows that
+shared the moved edge are resized after mouse release so the group stays
+connected.
+
+### Multi-Monitor Presets
+
+Each KWin output can seed its own default layout. Runtime layout switching can
+be tracked independently per monitor, and optionally per virtual desktop.
+
+### Visual Layout Helper
+
+Use the local browser editor at `tools/layout-editor.html` to design layouts
+without writing JSON by hand. The helper previews padding, screen ratios, and
+zone snapping, then exports the same JSON schema Magnetile uses at runtime.
 
 ### Theming
 
-By using the same colors as your selected color scheme, Magnetile will blend in perfectly with your desktop.
+Overlay and selector colors follow the active Plasma color scheme.
 
 ![](./media/theming.png)
 
@@ -72,62 +127,48 @@ qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
 
 ## Configuration
 
-The script settings can be found under `System Settings / Window Management / KWin Scripts / Magnetile / ⚙️`
+Open the settings from:
+
+`System Settings / Window Management / KWin Scripts / Magnetile / ⚙️`
 
 ### General
 
 #### Zone Selector
 
-The zone selector is a small widget that appears when you drag a window to the top of the screen. It allows you to snap the window to a zone regardless of the current layout.
-
-- Enable or disable the zone selector.
-- Set the distance from the top of the screen at which the zone selector will start to appear.
+Controls whether the top-of-screen layout picker appears while dragging a
+window, and how close the pointer needs to be before it opens.
 
 #### Zone Overlay
 
-The zone overlay is a fullscreen overlay that appears when you move a window. It shows all zones from the current layout and the window will snap to the zone you drop it on.
-
-- Enable or disable the zone overlay.
-- Choose whether the overlay should be shown when you start moving a window or when you press the toggle overlay shortcut.
-- Choose where the cursor needs to be in order to highlight a zone, either in the center of the zone or anywhere inside the zone.
-- Choose if you want the indicator to display all zones or only the highlighted zone.
+Controls the moving-window overlay, when it appears, how zones are highlighted,
+and whether indicators show every zone or only the target zone.
 
 #### Edge Snapping
 
-Edge Snapping allows you to snap windows to zones by dragging them to the edge of the screen. Make sure to disable the default edge snapping functionality before enabling this.
-
-- Enable or disable edge snapping.
-- Set the distance from the edge of the screen at which the edge snapping will start to appear.
+Controls whether monitor edges can trigger zone targeting and how far from an
+edge the pointer can be before snapping begins.
 
 #### Remember and restore window geometries
 
-The script will remember the geometry of each window when it's moved to a zone. When the window is moved out of the zone, it will be restored to it's original geometry.
-
-- Enable or disable this behavior.
+Stores a window's floating geometry before it enters a zone and restores that
+geometry when it leaves Magnetile management.
 
 #### Track active layout per screen
 
-If you have multiple monitors, you can enable this to track the active layout per screen. This will allow you to have different active layouts on different screens.
-
-- Enable or disable this behavior.
+Keeps the active layout separate for each KWin output. This is the setting that
+enables independent monitor presets.
 
 #### Automatically snap all new windows
 
-When a new window is launched, the script will automatically snap it to its closest zone.
-
-- Enable or disable this behavior.
+Snaps new normal windows to the nearest zone as they appear.
 
 #### Display OSD messages
 
-Disable this if you don't want to see any OSD messages.
-
-- Enable or disable this behavior.
+Shows or hides layout-change OSD messages.
 
 #### Fade windows while moving
 
-Reduce the opacity of other windows while the active window is being moved.
-
-- Enable or disable this behavior.
+Temporarily dims other windows while one window is being moved.
 
 ### Layouts
 
@@ -139,19 +180,23 @@ from scratch.
 
 Open `tools/layout-editor.html` in a browser. Paste the current JSON from the
 Layouts tab, edit the layout visually, then copy the generated JSON back into
-the Layouts tab.
+the Layouts tab. You can also open and save `.json` files for backup or reuse;
+the browser helper cannot write KWin settings directly.
 
 The helper editor can:
 
 - Create, rename, duplicate, delete, and reorder layouts.
 - Add and delete zones.
 - Move and resize zones by dragging.
+- Snap zone edges to a grid, screen edges, or other zones.
+- Preview common screen ratios and custom preview sizes.
+- Preview layout padding on the canvas.
 - Edit zone `x`, `y`, `width`, `height`, and optional `color` precisely.
 
 KWin's generic scripted config window cannot host a full drag/resize editor with
 custom save logic, so the helper keeps the existing KWin config model intact.
 
-Here are some examples to get you started:
+Example layouts:
 
 #### Examples
 
@@ -284,17 +329,17 @@ Here are some examples to get you started:
 
 </details>
 
-#### Explanation
+#### Schema
 
-The main array can contain as many layouts as you want:
+The top-level value is an array of layout objects.
 
-Each **layout** object needs the following keys:
+Each **layout** object supports:
 
 - `name`: The name of the layout, shown when cycling between layouts
 - `padding`: The amount of space between the window and the zone in pixels
 - `zones`: An array containing all zone objects for this layout
 
-Each **zone** object can contain the following keys:
+Each **zone** object supports:
 
 - `x`, `y`: position of the top left corner of the zone in screen percentage
 - `width`, `height`: size of the zone in screen percentage
@@ -332,8 +377,8 @@ together.
 
 Stop certain windows from snapping to zones by adding them to the filter list.
 
-- Select the filter mode, either **Include** or **Exclude**.
-- Add window classes to the list seperated by a newline.
+- Select **Include** or **Exclude** mode.
+- Add one window class per line.
 
 You can enable the debug overlay to see the window class of the active window.
 
@@ -341,11 +386,12 @@ You can enable the debug overlay to see the window class of the active window.
 
 #### Polling rate
 
-The polling rate is the amount of time between each zone check when dragging a window. The default is 100ms, a faster polling rate is more accurate but will use more CPU. You can change this to your liking.
+The polling rate controls how often Magnetile checks hover state while dragging
+a window. Lower values feel more responsive and use more CPU.
 
 #### Debugging
 
-Here you can enable logging or turn on the debug overlay.
+Enable script logging or show the runtime debug overlay.
 
 ## Shortcuts
 
@@ -408,13 +454,13 @@ qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.clean
 
 ### The script doesn't work
 
-Check if your KDE Plasma version is at 6 or higher (for older versions, check the releases)  
-Make sure there is at least one layout defined in the script settings and that it contains at least one zone.
+Confirm you are running KDE Plasma 6.4+ on Wayland and that the Layouts setting
+contains at least one layout with at least one zone.
 
 ### My settings are not saved
 
-After changing settings, reload the script by disabling, saving and enabling it again.  
-This is a known issue with the KWin Scripting API
+After changing settings, disable and enable the script again. KWin scripted
+config reloads can be inconsistent.
 
 ### Logs
 
@@ -430,4 +476,6 @@ Magnetile targets KDE Plasma 6.4+ and Wayland. Plasma 5 and X11 are not supporte
 
 ## License
 
-Magnetile is derived from KZones and is distributed under GPL-3.0. See [NOTICE.md](./NOTICE.md).
+Magnetile is derived from KZones and is distributed under GPL-3.0. Magnetile
+keeps upstream KZones attribution and documents Magnetile-specific AI-assisted
+changes in [NOTICE.md](./NOTICE.md).
