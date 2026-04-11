@@ -161,6 +161,9 @@ Flow:
 7. Resize snapshots store both current frame geometry and original logical zone
    geometry. Neighbor detection can use either source so full-height zones can
    stay connected to stacked half-height zones across their shared logical edge.
+8. Stacked or side-by-side sibling zones that share the same logical outer edge
+   follow that edge together, so accidentally grabbing one half of a split stack
+   still keeps the other half aligned.
 
 Scope rules:
 

@@ -153,6 +153,10 @@ Item {
         return Math.max(0, edgeGap);
     }
 
+    function edgesAligned(a, b) {
+        return Math.abs(a - b) <= geometryTolerance;
+    }
+
     function zoneGeometry(layoutIndex, zoneIndex, screen) {
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
@@ -705,6 +709,10 @@ Item {
             const leftAdjacent = (isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalLeftGap, resizeTolerance) && overlapsLogicalY);
             const bottomAdjacent = (isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalBottomGap, resizeTolerance) && overlapsLogicalX);
             const topAdjacent = (isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalTopGap, resizeTolerance) && overlapsLogicalX);
+            const rightAligned = edgesAligned(oldOtherLogical.right, oldLogicalGeometry.right) && overlapsLogicalY;
+            const leftAligned = edgesAligned(oldOtherLogical.left, oldLogicalGeometry.left) && overlapsLogicalY;
+            const bottomAligned = edgesAligned(oldOtherLogical.bottom, oldLogicalGeometry.bottom) && overlapsLogicalX;
+            const topAligned = edgesAligned(oldOtherLogical.top, oldLogicalGeometry.top) && overlapsLogicalX;
             const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap) : preservedResizeGap(logicalRightGap);
             const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap) : preservedResizeGap(logicalLeftGap);
             const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap) : preservedResizeGap(logicalBottomGap);
@@ -712,15 +720,23 @@ Item {
 
             if (changed.right && rightAdjacent)
                 nextLeft = newGeometry.right + preservedRightGap;
+            else if (changed.right && rightAligned)
+                nextRight = newGeometry.right;
 
             if (changed.left && leftAdjacent)
                 nextRight = newGeometry.left - preservedLeftGap;
+            else if (changed.left && leftAligned)
+                nextLeft = newGeometry.left;
 
             if (changed.bottom && bottomAdjacent)
                 nextTop = newGeometry.bottom + preservedBottomGap;
+            else if (changed.bottom && bottomAligned)
+                nextBottom = newGeometry.bottom;
 
             if (changed.top && topAdjacent)
                 nextBottom = newGeometry.top - preservedTopGap;
+            else if (changed.top && topAligned)
+                nextTop = newGeometry.top;
 
             const nextWidth = Math.round(nextRight - nextLeft);
             const nextHeight = Math.round(nextBottom - nextTop);
