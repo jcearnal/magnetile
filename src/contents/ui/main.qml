@@ -23,6 +23,7 @@ Item {
     property var activeScreen: null
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
     property int geometryTolerance: 3
+    property string signalToken: Math.random().toString() + Date.now().toString()
 
     function clientOutput(client) {
         return client && (client.output || client.screen || Workspace.activeScreen);
@@ -586,7 +587,8 @@ Item {
                 "client": window,
                 "zone": window.zone,
                 "layout": window.layout,
-                "geometry": Qt.rect(window.frameGeometry.x, window.frameGeometry.y, window.frameGeometry.width, window.frameGeometry.height)
+                "geometry": Qt.rect(window.frameGeometry.x, window.frameGeometry.y, window.frameGeometry.width, window.frameGeometry.height),
+                "logicalGeometry": zoneGeometry(layout, window.zone, output)
             });
         }
 
@@ -597,6 +599,7 @@ Item {
             "desktop": desktop,
             "activity": activity,
             "geometry": Qt.rect(client.frameGeometry.x, client.frameGeometry.y, client.frameGeometry.width, client.frameGeometry.height),
+            "logicalGeometry": zoneGeometry(layout, client.zone, output),
             "windows": snapshots
         };
     }
@@ -607,6 +610,7 @@ Item {
             return;
 
         const oldGeometry = rectEdges(snapshot.geometry);
+        const oldLogicalGeometry = rectEdges(snapshot.logicalGeometry || snapshot.geometry);
         let newGeometry = rectEdges(client.frameGeometry);
         const resizeTolerance = resizeGapTolerance(config.layouts[clampLayoutIndex(snapshot.layout)]);
         const minSize = Math.max(1, geometryTolerance);
@@ -627,24 +631,39 @@ Item {
         for (let i = 0; i < snapshot.windows.length; i++) {
             const item = snapshot.windows[i];
             const oldOther = rectEdges(item.geometry);
+            const oldOtherLogical = rectEdges(item.logicalGeometry || item.geometry);
             const overlapsOldY = rangesOverlap(oldGeometry.top, oldGeometry.bottom, oldOther.top, oldOther.bottom);
             const overlapsOldX = rangesOverlap(oldGeometry.left, oldGeometry.right, oldOther.left, oldOther.right);
+            const overlapsLogicalY = rangesOverlap(oldLogicalGeometry.top, oldLogicalGeometry.bottom, oldOtherLogical.top, oldOtherLogical.bottom);
+            const overlapsLogicalX = rangesOverlap(oldLogicalGeometry.left, oldLogicalGeometry.right, oldOtherLogical.left, oldOtherLogical.right);
             const rightGap = oldOther.left - oldGeometry.right;
             const leftGap = oldGeometry.left - oldOther.right;
             const bottomGap = oldOther.top - oldGeometry.bottom;
             const topGap = oldGeometry.top - oldOther.bottom;
+            const logicalRightGap = oldOtherLogical.left - oldLogicalGeometry.right;
+            const logicalLeftGap = oldLogicalGeometry.left - oldOtherLogical.right;
+            const logicalBottomGap = oldOtherLogical.top - oldLogicalGeometry.bottom;
+            const logicalTopGap = oldLogicalGeometry.top - oldOtherLogical.bottom;
+            const rightAdjacent = (isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalRightGap, resizeTolerance) && overlapsLogicalY);
+            const leftAdjacent = (isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalLeftGap, resizeTolerance) && overlapsLogicalY);
+            const bottomAdjacent = (isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalBottomGap, resizeTolerance) && overlapsLogicalX);
+            const topAdjacent = (isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalTopGap, resizeTolerance) && overlapsLogicalX);
+            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap) : preservedResizeGap(logicalRightGap);
+            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap) : preservedResizeGap(logicalLeftGap);
+            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap) : preservedResizeGap(logicalBottomGap);
+            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap) : preservedResizeGap(logicalTopGap);
 
-            if (changed.right && isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY)
-                constrainedRight = Math.min(constrainedRight, oldOther.right - preservedResizeGap(rightGap) - minSize);
+            if (changed.right && rightAdjacent)
+                constrainedRight = Math.min(constrainedRight, oldOther.right - preservedRightGap - minSize);
 
-            if (changed.left && isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY)
-                constrainedLeft = Math.max(constrainedLeft, oldOther.left + preservedResizeGap(leftGap) + minSize);
+            if (changed.left && leftAdjacent)
+                constrainedLeft = Math.max(constrainedLeft, oldOther.left + preservedLeftGap + minSize);
 
-            if (changed.bottom && isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX)
-                constrainedBottom = Math.min(constrainedBottom, oldOther.bottom - preservedResizeGap(bottomGap) - minSize);
+            if (changed.bottom && bottomAdjacent)
+                constrainedBottom = Math.min(constrainedBottom, oldOther.bottom - preservedBottomGap - minSize);
 
-            if (changed.top && isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX)
-                constrainedTop = Math.max(constrainedTop, oldOther.top + preservedResizeGap(topGap) + minSize);
+            if (changed.top && topAdjacent)
+                constrainedTop = Math.max(constrainedTop, oldOther.top + preservedTopGap + minSize);
         }
 
         const constrainedWidth = Math.round(constrainedRight - constrainedLeft);
@@ -664,29 +683,44 @@ Item {
                 continue;
 
             const oldOther = rectEdges(item.geometry);
+            const oldOtherLogical = rectEdges(item.logicalGeometry || item.geometry);
             let nextLeft = oldOther.left;
             let nextTop = oldOther.top;
             let nextRight = oldOther.right;
             let nextBottom = oldOther.bottom;
             const overlapsOldY = rangesOverlap(oldGeometry.top, oldGeometry.bottom, oldOther.top, oldOther.bottom);
             const overlapsOldX = rangesOverlap(oldGeometry.left, oldGeometry.right, oldOther.left, oldOther.right);
+            const overlapsLogicalY = rangesOverlap(oldLogicalGeometry.top, oldLogicalGeometry.bottom, oldOtherLogical.top, oldOtherLogical.bottom);
+            const overlapsLogicalX = rangesOverlap(oldLogicalGeometry.left, oldLogicalGeometry.right, oldOtherLogical.left, oldOtherLogical.right);
 
             const rightGap = oldOther.left - oldGeometry.right;
             const leftGap = oldGeometry.left - oldOther.right;
             const bottomGap = oldOther.top - oldGeometry.bottom;
             const topGap = oldGeometry.top - oldOther.bottom;
+            const logicalRightGap = oldOtherLogical.left - oldLogicalGeometry.right;
+            const logicalLeftGap = oldLogicalGeometry.left - oldOtherLogical.right;
+            const logicalBottomGap = oldOtherLogical.top - oldLogicalGeometry.bottom;
+            const logicalTopGap = oldLogicalGeometry.top - oldOtherLogical.bottom;
+            const rightAdjacent = (isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalRightGap, resizeTolerance) && overlapsLogicalY);
+            const leftAdjacent = (isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalLeftGap, resizeTolerance) && overlapsLogicalY);
+            const bottomAdjacent = (isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalBottomGap, resizeTolerance) && overlapsLogicalX);
+            const topAdjacent = (isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalTopGap, resizeTolerance) && overlapsLogicalX);
+            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap) : preservedResizeGap(logicalRightGap);
+            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap) : preservedResizeGap(logicalLeftGap);
+            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap) : preservedResizeGap(logicalBottomGap);
+            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap) : preservedResizeGap(logicalTopGap);
 
-            if (changed.right && isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY)
-                nextLeft = newGeometry.right + preservedResizeGap(rightGap);
+            if (changed.right && rightAdjacent)
+                nextLeft = newGeometry.right + preservedRightGap;
 
-            if (changed.left && isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY)
-                nextRight = newGeometry.left - preservedResizeGap(leftGap);
+            if (changed.left && leftAdjacent)
+                nextRight = newGeometry.left - preservedLeftGap;
 
-            if (changed.bottom && isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX)
-                nextTop = newGeometry.bottom + preservedResizeGap(bottomGap);
+            if (changed.bottom && bottomAdjacent)
+                nextTop = newGeometry.bottom + preservedBottomGap;
 
-            if (changed.top && isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX)
-                nextBottom = newGeometry.top - preservedResizeGap(topGap);
+            if (changed.top && topAdjacent)
+                nextBottom = newGeometry.top - preservedTopGap;
 
             const nextWidth = Math.round(nextRight - nextLeft);
             const nextHeight = Math.round(nextBottom - nextTop);
@@ -715,6 +749,9 @@ Item {
 
     function connectSignals(client) {
         function onInteractiveMoveResizeStarted() {
+            if (client.magnetileSignalToken !== root.signalToken)
+                return;
+
             Utils.log("Interactive move/resize started for client " + client.resourceClass.toString());
             if (client.resizeable && checkFilter(client)) {
                 if (client.move && checkFilter(client)) {
@@ -760,6 +797,9 @@ Item {
         }
 
         function onInteractiveMoveResizeStepped() {
+            if (client.magnetileSignalToken !== root.signalToken)
+                return;
+
             if (client.resizeable) {
                 if (moving && checkFilter(client))
                     moved = true;
@@ -768,6 +808,9 @@ Item {
         }
 
         function onInteractiveMoveResizeFinished() {
+            if (client.magnetileSignalToken !== root.signalToken)
+                return;
+
             Utils.log("Interactive move/resize finished for client " + client.resourceClass.toString());
             if (config.fadeWindowsWhileMoving) {
                 for (let i = 0; i < Workspace.stackingOrder.length; i++) {
@@ -799,6 +842,9 @@ Item {
 
         // fix from https://github.com/gerritdevriese/kzones/pull/25
         function onFullScreenChanged() {
+            if (client.magnetileSignalToken !== root.signalToken)
+                return;
+
             Utils.log("Client fullscreen: " + client.resourceClass.toString() + " (fullscreen " + client.fullScreen + ")");
             if (client.fullScreen == true) {
                 Utils.log("onFullscreenChanged: Client zone: " + client.zone + " layout: " + client.layout);
@@ -822,6 +868,7 @@ Item {
             return ;
 
         Utils.log("Connecting signals for client " + client.resourceClass.toString());
+        client.magnetileSignalToken = root.signalToken;
         client.onInteractiveMoveResizeStarted.connect(onInteractiveMoveResizeStarted);
         client.onInteractiveMoveResizeStepped.connect(onInteractiveMoveResizeStepped);
         client.onInteractiveMoveResizeFinished.connect(onInteractiveMoveResizeFinished);

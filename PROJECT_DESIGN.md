@@ -158,6 +158,9 @@ Flow:
 6. If the dragged edge would consume an adjacent neighbor past the minimum
    tracked size, Magnetile constrains the dragged window before applying
    neighbor geometry so the solver does not leave overlapping windows behind.
+7. Resize snapshots store both current frame geometry and original logical zone
+   geometry. Neighbor detection can use either source so full-height zones can
+   stay connected to stacked half-height zones across their shared logical edge.
 
 Scope rules:
 
