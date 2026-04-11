@@ -147,7 +147,10 @@ Flow:
    - other tiled windows in the same scope.
 3. `onInteractiveMoveResizeFinished` calls `connectedResize(client)`.
 4. `connectedResize` compares the resized window's old and new edges.
-5. Adjacent windows whose old edge touched the resized edge are resized to the new edge.
+5. Adjacent windows whose old edge touched the resized edge, or whose old edge
+   was separated by the layout padding gap, are resized to follow the new edge.
+   Padded layouts preserve the measured gap between the resized window and the
+   neighbor instead of collapsing the windows together.
 
 Scope rules:
 

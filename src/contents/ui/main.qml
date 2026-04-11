@@ -138,6 +138,20 @@ Item {
         return aStart < bEnd - diff && aEnd > bStart + diff;
     }
 
+    function resizeGapTolerance(layout) {
+        const padding = layout && layout.padding ? Number(layout.padding) : 0;
+        const safePadding = isFinite(padding) ? Math.max(0, padding) : 0;
+        return Math.max(geometryTolerance, safePadding + geometryTolerance);
+    }
+
+    function isResizeAdjacent(edgeGap, tolerance) {
+        return edgeGap >= -geometryTolerance && edgeGap <= tolerance;
+    }
+
+    function preservedResizeGap(edgeGap) {
+        return Math.max(0, edgeGap);
+    }
+
     function zoneGeometry(layoutIndex, zoneIndex, screen) {
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
@@ -552,6 +566,7 @@ Item {
 
         const oldGeometry = rectEdges(snapshot.geometry);
         const newGeometry = rectEdges(client.frameGeometry);
+        const resizeTolerance = resizeGapTolerance(config.layouts[clampLayoutIndex(snapshot.layout)]);
         const minSize = Math.max(1, geometryTolerance);
         const changed = {
             "left": Math.abs(newGeometry.left - oldGeometry.left) > geometryTolerance,
@@ -577,17 +592,22 @@ Item {
             const overlapsOldY = rangesOverlap(oldGeometry.top, oldGeometry.bottom, oldOther.top, oldOther.bottom);
             const overlapsOldX = rangesOverlap(oldGeometry.left, oldGeometry.right, oldOther.left, oldOther.right);
 
-            if (changed.right && Math.abs(oldOther.left - oldGeometry.right) <= geometryTolerance && overlapsOldY)
-                nextLeft = newGeometry.right;
+            const rightGap = oldOther.left - oldGeometry.right;
+            const leftGap = oldGeometry.left - oldOther.right;
+            const bottomGap = oldOther.top - oldGeometry.bottom;
+            const topGap = oldGeometry.top - oldOther.bottom;
 
-            if (changed.left && Math.abs(oldOther.right - oldGeometry.left) <= geometryTolerance && overlapsOldY)
-                nextRight = newGeometry.left;
+            if (changed.right && isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY)
+                nextLeft = newGeometry.right + preservedResizeGap(rightGap);
 
-            if (changed.bottom && Math.abs(oldOther.top - oldGeometry.bottom) <= geometryTolerance && overlapsOldX)
-                nextTop = newGeometry.bottom;
+            if (changed.left && isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY)
+                nextRight = newGeometry.left - preservedResizeGap(leftGap);
 
-            if (changed.top && Math.abs(oldOther.bottom - oldGeometry.top) <= geometryTolerance && overlapsOldX)
-                nextBottom = newGeometry.top;
+            if (changed.bottom && isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX)
+                nextTop = newGeometry.bottom + preservedResizeGap(bottomGap);
+
+            if (changed.top && isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX)
+                nextBottom = newGeometry.top - preservedResizeGap(topGap);
 
             const nextWidth = Math.round(nextRight - nextLeft);
             const nextHeight = Math.round(nextBottom - nextTop);
