@@ -131,7 +131,27 @@ Reduce the opacity of other windows while the active window is being moved.
 
 ### Layouts
 
-You can define your own layouts by modifying the JSON in the **Layouts** tab in the script settings, here are some examples to get you started:
+You can define your own layouts in the **Layouts** tab in the script settings.
+`layoutsJson` is still the source of truth, but you do not have to hand-edit it
+from scratch.
+
+#### Visual helper editor
+
+Open `tools/layout-editor.html` in a browser. Paste the current JSON from the
+Layouts tab, edit the layout visually, then copy the generated JSON back into
+the Layouts tab.
+
+The helper editor can:
+
+- Create, rename, duplicate, delete, and reorder layouts.
+- Add and delete zones.
+- Move and resize zones by dragging.
+- Edit zone `x`, `y`, `width`, `height`, and optional `color` precisely.
+
+KWin's generic scripted config window cannot host a full drag/resize editor with
+custom save logic, so the helper keeps the existing KWin config model intact.
+
+Here are some examples to get you started:
 
 #### Examples
 
@@ -284,6 +304,29 @@ Each **zone** object can contain the following keys:
   - `margin`: an object containing the margin for the indicator
     - `top`, `right`, `bottom`, `left`: margin in pixels
 - `color`: a color name or hex value to tint the zone with (optional)
+
+### Per-Monitor Layouts
+
+Enable **Track active layout per screen** to keep a separate active layout for
+each physical output. Magnetile keys this by KWin output name, so monitor
+arrangements can be left, right, above, below, or use negative virtual
+coordinates.
+
+Use **Monitor layout defaults** to seed a specific output with a layout. The
+value is a JSON object whose keys are KWin output names and whose values are
+layout names or zero-based layout indexes:
+
+```json
+{
+    "DP-1": "Priority Grid",
+    "HDMI-A-1": 1
+}
+```
+
+After a monitor has an active layout, layout switching on that monitor updates
+only that monitor's runtime selection. If **Track active layout per virtual
+desktop** is also enabled, Magnetile tracks the output and virtual desktop
+together.
 
 ### Filters
 

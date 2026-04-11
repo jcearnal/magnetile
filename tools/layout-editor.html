@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Magnetile Layout Editor</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f7f7;
+      --panel: #ffffff;
+      --text: #1b1b1b;
+      --muted: #666666;
+      --border: #c8c8c8;
+      --accent: #00856f;
+      --accent-2: #c83f49;
+      --zone: rgba(0, 133, 111, 0.22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #161616;
+        --panel: #242424;
+        --text: #f0f0f0;
+        --muted: #b8b8b8;
+        --border: #4b4b4b;
+        --zone: rgba(0, 190, 160, 0.24);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font: 14px/1.4 system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    header,
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0 0 10px;
+    }
+
+    p {
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    button.danger {
+      color: white;
+      background: var(--accent-2);
+      border-color: var(--accent-2);
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 7px;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 240px 1fr 340px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .toolbar,
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .layouts,
+    .zones {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .item.active {
+      border-color: var(--accent);
+      outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+
+    .canvas-wrap {
+      aspect-ratio: 16 / 9;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background:
+        linear-gradient(to right, color-mix(in srgb, var(--border) 35%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--border) 35%, transparent) 1px, transparent 1px),
+        var(--panel);
+      background-size: 10% 10%;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .zone {
+      position: absolute;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      background: var(--zone);
+      min-width: 24px;
+      min-height: 24px;
+      cursor: move;
+    }
+
+    .zone.active {
+      border-color: var(--accent-2);
+      background: color-mix(in srgb, var(--accent-2) 22%, transparent);
+    }
+
+    .zone .label {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      pointer-events: none;
+    }
+
+    .zone .handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      background: var(--accent);
+      border-top-left-radius: 6px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+    }
+
+    .status {
+      min-height: 20px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1000px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Magnetile Layout Editor</h1>
+    <p>Edit percentage-based layouts visually, then copy the generated JSON into Magnetile's Layouts setting.</p>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <h2>Layouts</h2>
+      <div class="layouts" id="layoutList"></div>
+      <div class="toolbar">
+        <button id="addLayout">New</button>
+        <button id="duplicateLayout">Duplicate</button>
+        <button id="deleteLayout" class="danger">Delete</button>
+        <button id="moveLayoutUp">Up</button>
+        <button id="moveLayoutDown">Down</button>
+      </div>
+      <label>Name <input id="layoutName"></label>
+      <label>Padding <input id="layoutPadding" type="number" min="0" step="1"></label>
+    </section>
+
+    <section class="panel">
+      <h2>Canvas</h2>
+      <div class="toolbar">
+        <button id="addZone" class="primary">Add zone</button>
+        <button id="deleteZone" class="danger">Delete zone</button>
+      </div>
+      <div class="canvas-wrap" id="canvas"></div>
+      <p class="status" id="status"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Zone</h2>
+      <div class="zones" id="zoneList"></div>
+      <div class="form-grid">
+        <label>X % <input id="zoneX" type="number" min="0" max="100" step="0.1"></label>
+        <label>Y % <input id="zoneY" type="number" min="0" max="100" step="0.1"></label>
+        <label>Width % <input id="zoneWidth" type="number" min="0.1" max="100" step="0.1"></label>
+        <label>Height % <input id="zoneHeight" type="number" min="0.1" max="100" step="0.1"></label>
+        <label>Color <input id="zoneColor" placeholder="#00856f"></label>
+      </div>
+      <h3>JSON</h3>
+      <div class="toolbar">
+        <button id="loadJson">Import JSON</button>
+        <button id="copyJson">Copy JSON</button>
+      </div>
+      <textarea id="json"></textarea>
+    </section>
+  </main>
+
+  <script>
+    const defaults = [
+      {
+        name: "Priority Grid",
+        padding: 0,
+        zones: [
+          { x: 0, y: 0, height: 100, width: 25 },
+          { x: 25, y: 0, height: 100, width: 50 },
+          { x: 75, y: 0, height: 100, width: 25 }
+        ]
+      },
+      {
+        name: "Quadrant Grid",
+        padding: 0,
+        zones: [
+          { x: 0, y: 0, height: 50, width: 50 },
+          { x: 0, y: 50, height: 50, width: 50 },
+          { x: 50, y: 50, height: 50, width: 50 },
+          { x: 50, y: 0, height: 50, width: 50 }
+        ]
+      }
+    ];
+
+    let layouts = structuredClone(defaults);
+    let layoutIndex = 0;
+    let zoneIndex = 0;
+    let drag = null;
+
+    const el = id => document.getElementById(id);
+    const canvas = el("canvas");
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function activeLayout() {
+      return layouts[layoutIndex];
+    }
+
+    function activeZone() {
+      return activeLayout().zones[zoneIndex] || null;
+    }
+
+    function normalizeZone(zone) {
+      zone.x = clamp(Number(zone.x) || 0, 0, 100);
+      zone.y = clamp(Number(zone.y) || 0, 0, 100);
+      zone.width = clamp(Number(zone.width) || 10, 0.1, 100 - zone.x);
+      zone.height = clamp(Number(zone.height) || 10, 0.1, 100 - zone.y);
+      if (!zone.color) delete zone.color;
+    }
+
+    function render() {
+      if (!layouts.length) layouts.push({ name: "Layout 1", padding: 0, zones: [] });
+      layoutIndex = clamp(layoutIndex, 0, layouts.length - 1);
+      zoneIndex = clamp(zoneIndex, 0, Math.max(0, activeLayout().zones.length - 1));
+
+      el("layoutList").innerHTML = "";
+      layouts.forEach((layout, index) => {
+        const item = document.createElement("div");
+        item.className = "item" + (index === layoutIndex ? " active" : "");
+        item.textContent = `${index + 1}. ${layout.name || "Unnamed"}`;
+        item.onclick = () => { layoutIndex = index; zoneIndex = 0; render(); };
+        el("layoutList").append(item);
+      });
+
+      el("layoutName").value = activeLayout().name || "";
+      el("layoutPadding").value = activeLayout().padding || 0;
+
+      canvas.innerHTML = "";
+      activeLayout().zones.forEach((zone, index) => {
+        normalizeZone(zone);
+        const node = document.createElement("div");
+        node.className = "zone" + (index === zoneIndex ? " active" : "");
+        node.style.left = zone.x + "%";
+        node.style.top = zone.y + "%";
+        node.style.width = zone.width + "%";
+        node.style.height = zone.height + "%";
+        node.style.borderColor = zone.color || "";
+        node.innerHTML = `<span class="label">${index + 1}</span><span class="handle"></span>`;
+        node.onpointerdown = event => startDrag(event, index, event.target.classList.contains("handle"));
+        canvas.append(node);
+      });
+
+      el("zoneList").innerHTML = "";
+      activeLayout().zones.forEach((zone, index) => {
+        const item = document.createElement("div");
+        item.className = "item" + (index === zoneIndex ? " active" : "");
+        item.textContent = `Zone ${index + 1}: ${zone.x}, ${zone.y}, ${zone.width} x ${zone.height}`;
+        item.onclick = () => { zoneIndex = index; render(); };
+        el("zoneList").append(item);
+      });
+
+      const zone = activeZone();
+      for (const id of ["zoneX", "zoneY", "zoneWidth", "zoneHeight", "zoneColor"]) {
+        el(id).disabled = !zone;
+      }
+      if (zone) {
+        el("zoneX").value = zone.x;
+        el("zoneY").value = zone.y;
+        el("zoneWidth").value = zone.width;
+        el("zoneHeight").value = zone.height;
+        el("zoneColor").value = zone.color || "";
+      }
+
+      el("json").value = JSON.stringify(layouts, null, 2);
+    }
+
+    function setStatus(text) {
+      el("status").textContent = text;
+    }
+
+    function startDrag(event, index, resize) {
+      zoneIndex = index;
+      const rect = canvas.getBoundingClientRect();
+      const zone = activeZone();
+      drag = {
+        resize,
+        startX: event.clientX,
+        startY: event.clientY,
+        canvasW: rect.width,
+        canvasH: rect.height,
+        zone: { ...zone }
+      };
+      canvas.setPointerCapture(event.pointerId);
+      render();
+    }
+
+    canvas.onpointermove = event => {
+      if (!drag) return;
+      const zone = activeZone();
+      const dx = (event.clientX - drag.startX) / drag.canvasW * 100;
+      const dy = (event.clientY - drag.startY) / drag.canvasH * 100;
+      if (drag.resize) {
+        zone.width = clamp(Number((drag.zone.width + dx).toFixed(1)), 0.1, 100 - zone.x);
+        zone.height = clamp(Number((drag.zone.height + dy).toFixed(1)), 0.1, 100 - zone.y);
+      } else {
+        zone.x = clamp(Number((drag.zone.x + dx).toFixed(1)), 0, 100 - zone.width);
+        zone.y = clamp(Number((drag.zone.y + dy).toFixed(1)), 0, 100 - zone.height);
+      }
+      render();
+    };
+
+    canvas.onpointerup = () => {
+      drag = null;
+    };
+
+    el("addLayout").onclick = () => {
+      layouts.push({ name: `Layout ${layouts.length + 1}`, padding: 0, zones: [{ x: 0, y: 0, width: 50, height: 50 }] });
+      layoutIndex = layouts.length - 1;
+      zoneIndex = 0;
+      render();
+    };
+
+    el("duplicateLayout").onclick = () => {
+      const copy = structuredClone(activeLayout());
+      copy.name = `${copy.name || "Layout"} Copy`;
+      layouts.splice(layoutIndex + 1, 0, copy);
+      layoutIndex += 1;
+      render();
+    };
+
+    el("deleteLayout").onclick = () => {
+      if (layouts.length <= 1) return setStatus("At least one layout is required.");
+      layouts.splice(layoutIndex, 1);
+      render();
+    };
+
+    el("moveLayoutUp").onclick = () => {
+      if (layoutIndex <= 0) return;
+      [layouts[layoutIndex - 1], layouts[layoutIndex]] = [layouts[layoutIndex], layouts[layoutIndex - 1]];
+      layoutIndex -= 1;
+      render();
+    };
+
+    el("moveLayoutDown").onclick = () => {
+      if (layoutIndex >= layouts.length - 1) return;
+      [layouts[layoutIndex + 1], layouts[layoutIndex]] = [layouts[layoutIndex], layouts[layoutIndex + 1]];
+      layoutIndex += 1;
+      render();
+    };
+
+    el("addZone").onclick = () => {
+      activeLayout().zones.push({ x: 10, y: 10, width: 40, height: 40 });
+      zoneIndex = activeLayout().zones.length - 1;
+      render();
+    };
+
+    el("deleteZone").onclick = () => {
+      if (!activeZone()) return;
+      activeLayout().zones.splice(zoneIndex, 1);
+      render();
+    };
+
+    el("layoutName").oninput = event => {
+      activeLayout().name = event.target.value;
+      render();
+    };
+
+    el("layoutPadding").oninput = event => {
+      activeLayout().padding = Math.max(0, Number(event.target.value) || 0);
+      render();
+    };
+
+    for (const [id, key] of [["zoneX", "x"], ["zoneY", "y"], ["zoneWidth", "width"], ["zoneHeight", "height"]]) {
+      el(id).oninput = event => {
+        const zone = activeZone();
+        if (!zone) return;
+        zone[key] = Number(event.target.value);
+        normalizeZone(zone);
+        render();
+      };
+    }
+
+    el("zoneColor").oninput = event => {
+      const zone = activeZone();
+      if (!zone) return;
+      zone.color = event.target.value.trim();
+      normalizeZone(zone);
+      render();
+    };
+
+    el("loadJson").onclick = () => {
+      try {
+        const parsed = JSON.parse(el("json").value);
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Expected a non-empty layout array.");
+        layouts = parsed;
+        layoutIndex = 0;
+        zoneIndex = 0;
+        render();
+        setStatus("Imported JSON.");
+      } catch (error) {
+        setStatus(error.message);
+      }
+    };
+
+    el("copyJson").onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(el("json").value);
+        setStatus("Copied JSON.");
+      } catch (error) {
+        el("json").focus();
+        el("json").select();
+        setStatus("Copy is blocked by this browser. The JSON is selected.");
+      }
+    };
+
+    render();
+  </script>
+</body>
+</html>

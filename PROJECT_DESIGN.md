@@ -37,8 +37,64 @@ The package root is `src/`.
 - `src/contents/code/utils.mjs`: logging, OSD, hover helpers.
 - `src/contents/config/main.xml`: KWin script config schema.
 - `src/contents/ui/config.ui`: settings UI.
+- `tools/layout-editor.html`: standalone browser helper for visual layout editing.
 
 The code intentionally remains close to KZones. Avoid large rewrites unless they are necessary.
+
+## Layout Editing Architecture
+
+`layoutsJson` remains the source of truth for layouts. The schema is still a
+backward-compatible array of layout objects, and all zones remain percentages.
+Optional fields such as `applications`, `indicator`, `color`, `fullscreen`, and
+future metadata are preserved by the JSON parser and helper editor where
+possible.
+
+The built-in KWin scripted config UI is a static QWidget `.ui` loaded by KDE's
+generic scripted config module. It is suitable for storing `kcfg_*` fields but
+not for a FancyZones-style drag/resize editor with custom save logic. The first
+visual editor milestone is therefore `tools/layout-editor.html`, a local helper
+that can import current layout JSON, edit layouts and zones visually, and copy
+the resulting JSON back into the Magnetile Layouts setting.
+
+Implemented helper editor operations:
+
+- Create, rename, duplicate, delete, and reorder layouts.
+- Add and delete zones.
+- Move and resize zones by dragging in a resolution-independent canvas.
+- Edit zone `x`, `y`, `width`, `height`, and optional `color` precisely.
+
+A future fully integrated editor should be either:
+
+- A custom KCM or external helper that writes the KWin script config directly
+  and triggers a KWin reconfigure, or
+- A runtime KWin QML editor only if the deployed KWin API exposes a reliable
+  script config write path.
+
+Do not replace `layoutsJson` with pixel geometry. Any migration must keep old
+arrays valid and make new fields optional.
+
+## Per-Monitor Layout Defaults
+
+`monitorLayoutsJson` is an optional JSON object mapping KWin output names to a
+layout name or zero-based layout index:
+
+```json
+{
+  "DP-1": "Priority Grid",
+  "HDMI-A-1": 1
+}
+```
+
+This map is only used when `trackLayoutPerScreen` is enabled. On first use of an
+output/desktop layout key, Magnetile seeds the active layout from
+`monitorLayoutsJson`; after that, runtime layout switching is tracked
+independently in memory for that output, and optionally for that virtual desktop
+when `trackLayoutPerDesktop` is also enabled.
+
+Monitor identity uses KWin output names (`output.name`). Geometry does not rely
+on output order or an origin of `x=0, y=0`; snapping uses
+`Workspace.clientArea(KWin.FullScreenArea, output, desktop)` plus percentage
+zones.
 
 ## Zone Geometry
 
