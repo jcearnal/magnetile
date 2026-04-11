@@ -66,6 +66,9 @@ Implemented helper editor operations:
 - Create, rename, duplicate, delete, and reorder layouts.
 - Add and delete zones.
 - Move and resize zones by dragging in a resolution-independent canvas.
+- Snap zone edges to a grid, screen edges, and other zones.
+- Preview layout padding and common/custom screen aspect ratios.
+- Import pasted JSON, open JSON files, save JSON files, and copy generated JSON.
 - Edit zone `x`, `y`, `width`, `height`, and optional `color` precisely.
 
 A future fully integrated editor should be either:
@@ -195,6 +198,25 @@ Current default shortcuts avoid numpad dependency:
 
 KDE keeps old bindings in `~/.config/kglobalshortcutsrc`. If shortcut defaults change, existing installs may need live KGlobalAccel updates or manual changes in System Settings.
 
+## Free Movement
+
+Free movement is a per-window override controlled by `Ctrl+Alt+F`.
+
+Behavior:
+
+- When enabled, Magnetile does not show the zone overlay for that window during
+  drag moves and the drop remains at the user's custom size and position.
+- Pressing `Ctrl+Alt+F` again disables the override for the active window.
+- Moving the window to a zone with a zone shortcut, selector drop, or snap
+  command clears the override.
+- The override is stored only as a dynamic KWin window property. It does not
+  survive window recreation or a full KWin restart.
+
+This is intentionally implemented as a toggle rather than a held global key.
+KWin `ShortcutHandler` activation is reliable for shortcuts, but it does not
+provide a matching key-release signal that can be used as a robust global
+"while held" state from the script.
+
 ## Known Limitations
 
 - Connected resize runs after mouse release, not continuously during drag.
@@ -214,6 +236,13 @@ qdbus6 org.kde.KWin /KWin reconfigure
 qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
 ```
 
+Force a clean KWin restart when signal handlers or shortcut declarations have
+changed:
+
+```sh
+qdbus6 org.kde.KWin /KWin org.kde.KWin.replace
+```
+
 The Makefile uses `zip` when available and Python's `zipfile` module as a fallback.
 
 Watch logs:
@@ -231,6 +260,9 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 - Drag a window to the top selector and drop into a zone.
 - Move a window while overlay is visible.
 - Put three windows into adjacent zones and resize the center window by mouse.
+- Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
+  again and confirm zone snapping returns.
+- Use `tools/layout-editor.html` to import, edit, copy, and reapply layout JSON.
 - Repeat connected resize on a secondary monitor if available.
 - Test at fractional scaling if available.
 

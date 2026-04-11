@@ -132,6 +132,27 @@ qdbus6 org.kde.KWin /KWin reconfigure
 qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
 ```
 
+After installing, open:
+
+`System Settings / Window Management / KWin Scripts`
+
+Enable **Magnetile** if it is not already enabled. Open Magnetile's settings
+with the gear button next to the script entry.
+
+When updating an existing install, KWin may keep an older script instance alive.
+If changes do not appear after `make`, restart KWin scripting:
+
+```sh
+qdbus6 org.kde.KWin /KWin reconfigure
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
+```
+
+If that still does not reload the script, restart KWin:
+
+```sh
+qdbus6 org.kde.KWin /KWin org.kde.KWin.replace
+```
+
 ## Configuration
 
 Open the settings from:
@@ -139,6 +160,17 @@ Open the settings from:
 `System Settings / Window Management / KWin Scripts / Magnetile / ⚙️`
 
 ### General
+
+#### Basic workflow
+
+1. Pick or create a layout in the **Layouts** tab.
+2. Move a window into a zone with `Ctrl+Alt+1..9`, the top zone selector, or
+   edge snapping if enabled.
+3. Switch layouts with `Ctrl+Alt+Shift+1..9` or cycle with `Ctrl+Alt+D`.
+4. Resize a snapped window by dragging an edge. Adjacent snapped windows in the
+   same layout follow after release.
+5. Press `Ctrl+Alt+F` when a window should temporarily ignore Magnetile drag
+   snapping.
 
 #### Zone Selector
 
@@ -177,6 +209,13 @@ Shows or hides layout-change OSD messages.
 
 Temporarily dims other windows while one window is being moved.
 
+#### Free active window
+
+`Ctrl+Alt+F` toggles free movement for the active window. A freed window keeps
+its custom size and position when dragged, and Magnetile will not show the
+snap overlay for that window. Press `Ctrl+Alt+F` again, or snap the window to a
+zone, to return it to normal Magnetile control.
+
 ### Layouts
 
 You can define your own layouts in the **Layouts** tab in the script settings.
@@ -185,10 +224,33 @@ from scratch.
 
 #### Visual helper editor
 
-Open `tools/layout-editor.html` in a browser. Paste the current JSON from the
-Layouts tab, edit the layout visually, then copy the generated JSON back into
-the Layouts tab. You can also open and save `.json` files for backup or reuse;
-the browser helper cannot write KWin settings directly.
+The visual layout customizer is the local HTML file:
+
+`tools/layout-editor.html`
+
+Open it from the cloned Magnetile repository in any browser. For example, if
+the repo is at `~/projects/magnetile`, open:
+
+`file:///home/YOUR_USER/projects/magnetile/tools/layout-editor.html`
+
+The customizer is a browser helper, not a KWin settings page. It cannot write
+KWin settings directly.
+
+To use it:
+
+1. Open Magnetile settings from `System Settings / Window Management / KWin
+   Scripts / Magnetile / ⚙️`.
+2. Go to the **Layouts** tab.
+3. Copy the full JSON from the layout text box.
+4. Open `tools/layout-editor.html` in a browser.
+5. Paste the JSON into the editor's JSON box and click **Import pasted JSON**.
+6. Edit layouts and zones visually.
+7. Click **Copy JSON**.
+8. Paste the generated JSON back into Magnetile's **Layouts** tab.
+9. Apply the settings, then disable and enable Magnetile or restart KWin if the
+   new layout does not appear immediately.
+
+You can also open and save `.json` files in the helper for backup or reuse.
 
 The helper editor can:
 
@@ -398,7 +460,9 @@ a window. Lower values feel more responsive and use more CPU.
 
 #### Debugging
 
-Enable script logging or show the runtime debug overlay.
+Enable script logging or show the runtime debug overlay. The debug overlay is
+useful for finding a window's resource class for filters or application-based
+zone rules.
 
 ## Shortcuts
 
@@ -435,6 +499,19 @@ List of all available shortcuts:
 3. Resize the center window with the mouse by dragging its left or right edge.
 4. Release the mouse.
 5. The adjacent window sharing that edge should resize to fill the space or yield space.
+6. For padded layouts, the visual gap between connected windows should remain.
+7. For split stacks, resize the full-height neighbor to move both stacked
+   windows together. If you grab one half of the stack by accident, the matching
+   split sibling should keep the same outer edge aligned.
+
+## Testing Free Movement
+
+1. Move a window into a zone.
+2. Press `Ctrl+Alt+F`; the OSD should say **Free movement enabled**.
+3. Drag the window. The zone overlay should stay hidden and the window should
+   keep the custom drop position.
+4. Press `Ctrl+Alt+F` again; the OSD should say **Free movement disabled**.
+5. Drag the window again. Magnetile snapping should be available again.
 
 ## Tips and Tricks
 
@@ -469,6 +546,19 @@ contains at least one layout with at least one zone.
 
 After changing settings, disable and enable the script again. KWin scripted
 config reloads can be inconsistent.
+
+### I cannot find the layout customizer
+
+The visual customizer is not opened from System Settings. Open the local file
+`tools/layout-editor.html` from the cloned Magnetile repository in a browser,
+then copy JSON between the browser helper and Magnetile's **Layouts** settings
+tab.
+
+### A freed window will not snap anymore
+
+Press `Ctrl+Alt+F` again while the window is active, or use any zone shortcut
+such as `Ctrl+Alt+1`. The OSD reports whether free movement is enabled or
+disabled.
 
 ### Logs
 
