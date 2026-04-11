@@ -22,17 +22,38 @@ Because KZones is GPL-3.0, Magnetile is distributed under GPL-3.0 as well.
 The goal is to preserve compatible KZones behavior while making targeted
 improvements for modern Plasma 6 Wayland workflows.
 
-### Magnetile Improvements
+### Preserved KZones Features
+
+Magnetile keeps the original KZones-style workflow and feature set, including:
+
+- FancyZones-style custom layouts made from percentage-based zones.
+- A top-of-screen zone selector while dragging windows.
+- A visual zone overlay while moving windows.
+- Optional edge snapping.
+- Multiple saved layouts.
+- Keyboard shortcuts for moving windows to zones, cycling layouts, switching
+  layouts, moving to neighboring zones, cycling windows in a zone, and snapping
+  windows.
+- Plasma color-scheme aware overlay and selector styling.
+- JSON-based layout configuration.
+
+These features come from the KZones base and are preserved so existing KZones
+users have a familiar workflow.
+
+### New In Magnetile
 
 Compared with the original KZones base, Magnetile adds or is developing:
 
-- Connected resizing: adjacent tiled windows resize after a manual edge resize.
+- Connected resizing: adjacent tiled windows resize after a manual edge resize,
+  and later snaps can follow the resized runtime grid.
 - KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
 - Resolution-independent geometry fixes for multi-monitor layouts, including
   outputs that do not start at `x=0, y=0`.
 - Per-monitor layout defaults through `monitorLayoutsJson`.
 - Independent active-layout tracking per output and optionally per virtual
   desktop.
+- Free movement overrides for temporarily dragging a window outside Magnetile's
+  snap grid.
 - A visual layout editor helper for creating, renaming, duplicating, deleting,
   reordering, previewing, importing, and exporting JSON layouts.
 - Editor support for snapping, padding preview, preview aspect ratios, and
@@ -84,7 +105,9 @@ neighboring zones, cycling windows in a zone, and snapping all visible windows.
 When you resize a tiled window with the mouse, Magnetile checks nearby tiled
 windows on the same output, virtual desktop, activity, and layout. Windows that
 shared the moved edge are resized after mouse release so the group stays
-connected.
+connected. Magnetile also keeps a runtime version of the resized grid so future
+snaps on that output follow the adjusted zone sizes until the script reloads or
+the configuration changes.
 
 ### Free Movement
 
@@ -503,6 +526,8 @@ List of all available shortcuts:
 7. For split stacks, resize the full-height neighbor to move both stacked
    windows together. If you grab one half of the stack by accident, the matching
    split sibling should keep the same outer edge aligned.
+8. Snap another window into one of the resized zones. It should use the current
+   resized grid, not the original JSON layout dimensions.
 
 ## Testing Free Movement
 
