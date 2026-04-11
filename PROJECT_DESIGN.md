@@ -268,6 +268,8 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 
 ## Feature Ideas Already Requested
 
+- Hotkey to restore all windows on the current output to the original layout
+  size and position.
 - Better native KWin tile API integration.
 - Multi-zone spanning.
 - GUI layout editor.

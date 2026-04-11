@@ -20,6 +20,7 @@ Item {
     property var displaySize: new Object()
     property int currentLayout: 0
     property var screenLayouts: new Object()
+    property var resizedZoneGeometries: new Object()
     property int highlightedZone: -1
     property var activeScreen: null
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
@@ -158,7 +159,68 @@ Item {
         return Math.abs(a - b) <= geometryTolerance;
     }
 
+    function runtimeZoneKey(layoutIndex, zoneIndex, screen, desktop, activity) {
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const area = Workspace.clientArea(KWin.FullScreenArea, resolvedScreen, resolvedDesktop);
+        const parts = [
+            clampLayoutIndex(layoutIndex),
+            zoneIndex,
+            outputName(resolvedScreen),
+            area.x,
+            area.y,
+            area.width,
+            area.height,
+            resolvedDesktop && resolvedDesktop.id ? resolvedDesktop.id : "",
+            activity !== undefined && activity !== null ? activity : ""
+        ];
+        return parts.join(":");
+    }
+
+    function rectFromStoredGeometry(geometry) {
+        if (!geometry)
+            return null;
+
+        if (!isFinite(geometry.x) || !isFinite(geometry.y) || !isFinite(geometry.width) || !isFinite(geometry.height))
+            return null;
+
+        return roundedRect(geometry.x, geometry.y, geometry.width, geometry.height);
+    }
+
+    function storeRuntimeZoneGeometry(layoutIndex, zoneIndex, screen, desktop, activity, geometry) {
+        if (zoneIndex === undefined || zoneIndex === -1 || !geometry)
+            return;
+
+        const key = runtimeZoneKey(layoutIndex, zoneIndex, screen, desktop, activity);
+        resizedZoneGeometries[key] = {
+            "x": Math.round(geometry.x),
+            "y": Math.round(geometry.y),
+            "width": Math.round(geometry.width),
+            "height": Math.round(geometry.height)
+        };
+    }
+
+    function clearRuntimeLayoutGeometry(layoutIndex, screen, desktop, activity) {
+        const zones = config.layouts[clampLayoutIndex(layoutIndex)].zones;
+        for (let i = 0; i < zones.length; i++)
+            delete resizedZoneGeometries[runtimeZoneKey(layoutIndex, i, screen, desktop, activity)];
+
+    }
+
+    function snapshotZoneGeometries(layoutIndex, screen) {
+        const zones = config.layouts[clampLayoutIndex(layoutIndex)].zones;
+        const geometries = [];
+        for (let i = 0; i < zones.length; i++)
+            geometries.push(zoneGeometry(layoutIndex, i, screen));
+
+        return geometries;
+    }
+
     function zoneGeometry(layoutIndex, zoneIndex, screen) {
+        const stored = rectFromStoredGeometry(resizedZoneGeometries[runtimeZoneKey(layoutIndex, zoneIndex, screen, Workspace.currentDesktop, Workspace.currentActivity)]);
+        if (stored)
+            return stored;
+
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
         const zonePadding = layout.padding || 0;
@@ -610,6 +672,7 @@ Item {
         const output = clientOutput(client);
         const desktop = Workspace.currentDesktop;
         const activity = Workspace.currentActivity;
+        const zoneGeometries = snapshotZoneGeometries(layout, output);
         const windows = tiledClientsForResize(client, layout, output, desktop, activity);
         const snapshots = [];
         for (let i = 0; i < windows.length; i++) {
@@ -631,8 +694,86 @@ Item {
             "activity": activity,
             "geometry": Qt.rect(client.frameGeometry.x, client.frameGeometry.y, client.frameGeometry.width, client.frameGeometry.height),
             "logicalGeometry": zoneGeometry(layout, client.zone, output),
+            "zoneGeometries": zoneGeometries,
             "windows": snapshots
         };
+    }
+
+    function updateRuntimeLayoutGeometry(snapshot, finalGeometry) {
+        if (!snapshot || !snapshot.zoneGeometries || snapshot.zone === undefined || snapshot.zone === -1)
+            return;
+
+        const layoutIndex = clampLayoutIndex(snapshot.layout);
+        const zones = config.layouts[layoutIndex].zones;
+        const oldTarget = rectEdges(snapshot.zoneGeometries[snapshot.zone] || snapshot.logicalGeometry || snapshot.geometry);
+        const newTarget = rectEdges(finalGeometry);
+        const resizeTolerance = resizeGapTolerance(config.layouts[layoutIndex]);
+        const minSize = Math.max(1, geometryTolerance);
+        const changed = {
+            "left": Math.abs(newTarget.left - oldTarget.left) > geometryTolerance,
+            "right": Math.abs(newTarget.right - oldTarget.right) > geometryTolerance,
+            "top": Math.abs(newTarget.top - oldTarget.top) > geometryTolerance,
+            "bottom": Math.abs(newTarget.bottom - oldTarget.bottom) > geometryTolerance
+        };
+
+        clearRuntimeLayoutGeometry(layoutIndex, snapshot.output, snapshot.desktop, snapshot.activity);
+
+        for (let i = 0; i < zones.length; i++) {
+            const oldZoneGeometry = snapshot.zoneGeometries[i];
+            if (!oldZoneGeometry)
+                continue;
+
+            if (i === snapshot.zone) {
+                storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, finalGeometry);
+                continue;
+            }
+
+            const oldZone = rectEdges(oldZoneGeometry);
+            let nextLeft = oldZone.left;
+            let nextTop = oldZone.top;
+            let nextRight = oldZone.right;
+            let nextBottom = oldZone.bottom;
+            const overlapsY = rangesOverlap(oldTarget.top, oldTarget.bottom, oldZone.top, oldZone.bottom);
+            const overlapsX = rangesOverlap(oldTarget.left, oldTarget.right, oldZone.left, oldZone.right);
+            const rightGap = oldZone.left - oldTarget.right;
+            const leftGap = oldTarget.left - oldZone.right;
+            const bottomGap = oldZone.top - oldTarget.bottom;
+            const topGap = oldTarget.top - oldZone.bottom;
+            const rightAdjacent = isResizeAdjacent(rightGap, resizeTolerance) && overlapsY;
+            const leftAdjacent = isResizeAdjacent(leftGap, resizeTolerance) && overlapsY;
+            const bottomAdjacent = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsX;
+            const topAdjacent = isResizeAdjacent(topGap, resizeTolerance) && overlapsX;
+            const sameColumn = edgesAligned(oldZone.left, oldTarget.left) && edgesAligned(oldZone.right, oldTarget.right);
+            const sameRow = edgesAligned(oldZone.top, oldTarget.top) && edgesAligned(oldZone.bottom, oldTarget.bottom);
+
+            if (changed.right && rightAdjacent)
+                nextLeft = newTarget.right + preservedResizeGap(rightGap);
+            else if (changed.right && sameColumn)
+                nextRight = newTarget.right;
+
+            if (changed.left && leftAdjacent)
+                nextRight = newTarget.left - preservedResizeGap(leftGap);
+            else if (changed.left && sameColumn)
+                nextLeft = newTarget.left;
+
+            if (changed.bottom && bottomAdjacent)
+                nextTop = newTarget.bottom + preservedResizeGap(bottomGap);
+            else if (changed.bottom && sameRow)
+                nextBottom = newTarget.bottom;
+
+            if (changed.top && topAdjacent)
+                nextBottom = newTarget.top - preservedResizeGap(topGap);
+            else if (changed.top && sameRow)
+                nextTop = newTarget.top;
+
+            const nextWidth = Math.round(nextRight - nextLeft);
+            const nextHeight = Math.round(nextBottom - nextTop);
+            if (nextWidth < minSize || nextHeight < minSize)
+                storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, oldZoneGeometry);
+            else
+                storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, roundedRect(nextLeft, nextTop, nextWidth, nextHeight));
+
+        }
     }
 
     function connectedResize(client) {
@@ -786,6 +927,7 @@ Item {
         client.layout = snapshot.layout;
         client.desktop = snapshot.desktop;
         client.activity = snapshot.activity;
+        updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
     }
 
     function connectSignals(client) {
@@ -1167,10 +1309,12 @@ Item {
         onSwitchToPreviousWindowInCurrentZone: {
             switchWindowInZone(Workspace.activeWindow.zone, Workspace.activeWindow.layout, true);
         }
-        onMoveActiveWindowToZone: {
+        onMoveActiveWindowToZone: function(zone) {
+            refreshClientAreaForClient(Workspace.activeWindow);
             moveClientToZone(Workspace.activeWindow, zone);
         }
-        onActivateLayout: {
+        onActivateLayout: function(layout) {
+            refreshClientAreaForClient(Workspace.activeWindow);
             if (layout <= config.layouts.length - 1) {
                 setCurrentLayout(layout);
                 highlightedZone = -1;
@@ -1264,7 +1408,9 @@ Item {
     Connections {
         //! still not working, hopefully it will at some point 😐
         function onConfigChanged() {
+            resizedZoneGeometries = new Object();
             Core.loadConfig();
+            refreshClientArea();
         }
 
         target: Options
