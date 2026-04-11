@@ -2,11 +2,9 @@
 
 <img align="right" width="125" height="75" src="./media/icon.png">
 
-KDE KWin Script for snapping windows into zones. Handy when using a (super) ultrawide monitor, an alternative to PowerToys FancyZones and Windows 11 snap layouts.
+KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
-[![kde-store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://store.kde.org/p/1909220)
-[![aur-package](https://img.shields.io/aur/version/kwin-scripts-magnetile?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile)
-[![nixos-package](https://img.shields.io/badge/NixOS-package-blue?logo=nixos)](https://mynixos.com/nixpkgs/package/kdePackages.magnetile)
+Magnetile starts from the KZones zone overlay and shortcut workflow, then adds Fluid Tile-style connected resizing: when a tiled window is manually resized, adjacent tiled windows resize to fill the gap automatically.
 
 ## Features
 
@@ -40,32 +38,36 @@ Magnetile comes with a set of [shortcuts](#shortcuts) to move your windows betwe
 
 ![](./media/shortcuts.gif)
 
+### Connected Resizing
+
+When a tiled window is resized by mouse, Magnetile detects adjacent tiled windows on the same monitor, virtual desktop, activity, and layout. Adjacent windows sharing the resized edge are resized after the mouse is released so the tiled area stays connected.
+
 ### Theming
 
 By using the same colors as your selected color scheme, Magnetile will blend in perfectly with your desktop.
 
 ![](./media/theming.png)
 
+## Requirements
+
+- KDE Plasma 6.4 or newer
+- KWin 6 on Wayland
+- `kpackagetool6`
+- `qdbus6`
+- `make`
+- `zip`, or Python 3 for the Makefile fallback packager
+
 ## Installation
 
-To install Magnetile you can either use the built-in script manager or clone the repo and build it yourself.
-
-### KWin Script Manager
-
-Navigate to `System Settings / Window Management / KWin Scripts / Get New…` and search for Magnetile.  
-
-Depending on your Plasma version, one of these packages will be downloaded and installed:
-
-- [Magnetile](https://store.kde.org/p/1909220)
-- [Magnetile for Plasma 5](https://store.kde.org/p/2143914)
-
-### Build it yourself
-
-Make sure you have "zip" installed on your system before building.
+Clone and install locally:
 
 ```sh
 git clone https://github.com/jcearnal/magnetile.git
-cd magnetile && make
+cd magnetile
+make
+kwriteconfig6 --file kwinrc --group Plugins --key magnetileEnabled true
+qdbus6 org.kde.KWin /KWin reconfigure
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
 ```
 
 ## Configuration
@@ -308,7 +310,7 @@ List of all available shortcuts:
 
 | Shortcut                                           | Default Binding                                                     |
 | -------------------------------------------------- | ------------------------------------------------------------------- |
-| Move active window to zone                         | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Num 0-9</kbd>               |
+| Move active window to zone                         | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>1-9</kbd>                   |
 | Move active window to previous zone                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Left</kbd>                  |
 | Move active window to next zone                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Right</kbd>                 |
 | Switch to previous window in current zone          | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Down</kbd>                  |
@@ -316,7 +318,7 @@ List of all available shortcuts:
 | Cycle layouts                                      | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>D</kbd>                     |
 | Cycle layouts (reversed)                           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>  |
 | Toggle zone overlay                                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>                     |
-| Activate layout                                    | <kbd>Meta</kbd> + <kbd>Num 0-9</kbd>                                |
+| Activate layout                                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1-9</kbd> |
 | Move active window up                              | <kbd>Meta</kbd> + <kbd>Up</kbd>                                     |
 | Move active window down                            | <kbd>Meta</kbd> + <kbd>Down</kbd>                                   |
 | Move active window left                            | <kbd>Meta</kbd> + <kbd>Left</kbd>                                   |
@@ -327,7 +329,15 @@ List of all available shortcuts:
 *To change the default bindings, go to `System Settings / Shortcuts` and search for Magnetile*
 
 > [!NOTE]  
-> Not all shortcuts will be bound by default as they conflift with existing system bindings.
+> Not all shortcuts will be bound by default as they conflict with existing system bindings.
+
+## Testing Connected Resize
+
+1. Open three normal windows.
+2. Move them into the default Priority Grid using `Ctrl+Alt+1`, `Ctrl+Alt+2`, and `Ctrl+Alt+3`.
+3. Resize the center window with the mouse by dragging its left or right edge.
+4. Release the mouse.
+5. The adjacent window sharing that edge should resize to fill the space or yield space.
 
 ## Tips and Tricks
 
@@ -363,12 +373,18 @@ Make sure there is at least one layout defined in the script settings and that i
 After changing settings, reload the script by disabling, saving and enabling it again.  
 This is a known issue with the KWin Scripting API
 
-### The screen turns black while moving a window
+### Logs
 
-If you are using X11 make sure your compositor is enabled, as it is needed to draw transparent windows.  
-You can find this setting in `System Settings / Display and Monitor / Compositor`
+Follow KWin scripting logs while testing:
 
-### Auto-update broke Magnetile on Plasma 5
+```sh
+journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGORY=qml QT_CATEGORY=js
+```
 
-Due to API changes in KWin 6, the newer versions of the script are not backwards compatible with Plasma 5.  
-If you were already subscribed to Magnetile using the script manager and updated to the latest version by accident, you will need to uninstall the script and subscribe to [Magnetile for Plasma 5](https://store.kde.org/p/2143914) instead.
+### Plasma 5 and X11
+
+Magnetile targets KDE Plasma 6.4+ and Wayland. Plasma 5 and X11 are not supported.
+
+## License
+
+Magnetile is derived from KZones and is distributed under GPL-3.0. See [NOTICE.md](./NOTICE.md).

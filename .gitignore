@@ -1,2 +1,16 @@
+# KWin script packages
+*.kwinscript
+
+# Generated config UI helpers
 contents/ui/config_ui.py
-KZones.kwinscript
+src/contents/ui/config_ui.py
+
+# Local editor and OS files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs and temporary files
+*.log
+tmp/
