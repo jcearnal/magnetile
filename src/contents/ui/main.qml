@@ -28,6 +28,59 @@ Item {
         return client && (client.output || client.screen || Workspace.activeScreen);
     }
 
+    function outputName(screen) {
+        return screen && screen.name ? screen.name : "";
+    }
+
+    function clampLayoutIndex(layout) {
+        if (!config.layouts || config.layouts.length === 0)
+            return 0;
+
+        const index = Number(layout);
+        if (!isFinite(index))
+            return 0;
+
+        return Math.max(0, Math.min(config.layouts.length - 1, Math.round(index)));
+    }
+
+    function layoutIndexByName(name) {
+        if (!config.layouts || name === undefined || name === null)
+            return -1;
+
+        const layoutName = name.toString();
+        for (let i = 0; i < config.layouts.length; i++) {
+            if (config.layouts[i].name === layoutName)
+                return i;
+
+        }
+        return -1;
+    }
+
+    function configuredLayoutForOutput(screen) {
+        const name = outputName(screen);
+        if (!name || !config.monitorLayouts)
+            return 0;
+
+        const assigned = config.monitorLayouts[name];
+        if (assigned === undefined || assigned === null || assigned === "")
+            return 0;
+
+        if (typeof assigned === "number")
+            return clampLayoutIndex(assigned);
+
+        if (typeof assigned === "string") {
+            const byName = layoutIndexByName(assigned);
+            if (byName !== -1)
+                return byName;
+
+            const byIndex = parseInt(assigned, 10);
+            if (!isNaN(byIndex))
+                return clampLayoutIndex(byIndex);
+
+        }
+        return 0;
+    }
+
     function clientDesktops(client) {
         if (client && client.desktops)
             return client.desktops;
@@ -86,7 +139,7 @@ Item {
     }
 
     function zoneGeometry(layoutIndex, zoneIndex, screen) {
-        const layout = config.layouts[layoutIndex];
+        const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
         const zonePadding = layout.padding || 0;
         const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
@@ -154,16 +207,10 @@ Item {
         refreshClientAreaForClient(client);
         // move client to zone
         if (zone != -1) {
-            const currentZones = repeaterLayout.itemAt(currentLayout);
-            if (!currentZones || zone < 0 || zone >= currentZones.repeater.count)
+            if (zone < 0 || zone >= config.layouts[currentLayout].zones.length)
                 return;
 
-            const zoneItem = currentZones.repeater.itemAt(zone);
-            if (!zoneItem)
-                return;
-
-            const itemGlobal = zoneItem.mapToGlobal(Qt.point(0, 0));
-            const newGeometry = roundedRect(itemGlobal.x, itemGlobal.y, zoneItem.width, zoneItem.height);
+            const newGeometry = zoneGeometry(currentLayout, zone, clientOutput(client));
             Utils.log("Moving client " + client.resourceClass.toString() + " to zone " + zone + " with geometry " + JSON.stringify(newGeometry));
             saveClientProperties(client, zone);
             client.setMaximize(false, false);
@@ -201,7 +248,7 @@ Item {
             return null;
 
         Utils.log("Moving client " + client.resourceClass.toString() + " to closest zone");
-        refreshClientArea();
+        refreshClientAreaForClient(client);
         const centerPointOfClient = {
             "x": client.frameGeometry.x + (client.frameGeometry.width / 2),
             "y": client.frameGeometry.y + (client.frameGeometry.height / 2)
@@ -231,7 +278,7 @@ Item {
         if (!checkFilter(client))
             return null;
 
-        refreshClientArea();
+        refreshClientAreaForClient(client);
         const centerPointOfClient = {
             "x": client.frameGeometry.x + (client.frameGeometry.width / 2),
             "y": client.frameGeometry.y + (client.frameGeometry.height / 2)
@@ -309,7 +356,7 @@ Item {
             return null;
 
         Utils.log("Moving client " + client.resourceClass.toString() + " to neighbour " + direction);
-        refreshClientArea();
+        refreshClientAreaForClient(client);
         const zones = config.layouts[currentLayout].zones;
         if (client.zone === -1 || client.layout !== currentLayout) {
             moveClientToClosestZone(client);
@@ -378,7 +425,7 @@ Item {
     function getLayoutKey() {
         const parts = [];
         if (config.trackLayoutPerScreen)
-            parts.push((activeScreen || Workspace.activeScreen).name);
+            parts.push(outputName(activeScreen || Workspace.activeScreen));
 
         if (config.trackLayoutPerDesktop)
             parts.push(Workspace.currentDesktop.id);
@@ -389,26 +436,26 @@ Item {
     function getCurrentLayout() {
         if (config.trackLayoutPerScreen || config.trackLayoutPerDesktop) {
             const key = getLayoutKey();
-            if (!screenLayouts[key])
-                screenLayouts[key] = 0;
+            if (screenLayouts[key] === undefined)
+                screenLayouts[key] = config.trackLayoutPerScreen ? configuredLayoutForOutput(activeScreen || Workspace.activeScreen) : 0;
 
-            return screenLayouts[key];
+            return clampLayoutIndex(screenLayouts[key]);
         }
         return currentLayout;
     }
 
     function setCurrentLayout(layout) {
         if (config.trackLayoutPerScreen || config.trackLayoutPerDesktop)
-            screenLayouts[getLayoutKey()] = layout;
+            screenLayouts[getLayoutKey()] = clampLayoutIndex(layout);
 
-        currentLayout = layout;
+        currentLayout = clampLayoutIndex(layout);
     }
 
     function osdLayoutName() {
         const name = config.layouts[currentLayout].name;
         const parts = [];
         if (config.trackLayoutPerScreen)
-            parts.push(Workspace.activeScreen.name);
+            parts.push(outputName(activeScreen || Workspace.activeScreen));
 
         if (config.trackLayoutPerDesktop)
             parts.push(Workspace.currentDesktop.name);
@@ -662,10 +709,7 @@ Item {
                     const zone = layout.zones[client.zone];
                     Utils.log("Layout.fullscreen: " + layout.fullscreen + " Zone.fullscreen: " + zone.fullscreen);
                     if (layout.fullscreen == true || zone.fullscreen == true) {
-                        const currentZones = repeaterLayout.itemAt(client.layout);
-                        const zoneItem = currentZones.repeater.itemAt(client.zone);
-                        const itemGlobal = zoneItem.mapToGlobal(Qt.point(0, 0));
-                        const newGeometry = Qt.rect(Math.round(itemGlobal.x), Math.round(itemGlobal.y), Math.round(zoneItem.width), Math.round(zoneItem.height));
+                        const newGeometry = zoneGeometry(client.layout, client.zone, clientOutput(client));
                         Utils.log("Fullscreen client " + client.resourceClass.toString() + " to zone " + client.zone + " with geometry " + JSON.stringify(newGeometry));
                         client.setMaximize(false, false);
                         client.frameGeometry = newGeometry;
@@ -750,7 +794,7 @@ Item {
                     let hoveringZone = -1;
                     // zone overlay
                     const currentZones = repeaterLayout.itemAt(currentLayout);
-                    if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded)
+                    if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded && currentZones)
                         currentZones.repeater.model.forEach((zone, zoneIndex) => {
                         if (Utils.isHovering(currentZones.repeater.itemAt(zoneIndex).children[config.zoneOverlayHighlightTarget]))
                             hoveringZone = zoneIndex;
@@ -783,31 +827,30 @@ Item {
                         if (Workspace.cursorPos.x <= clientArea.x + triggerDistance || Workspace.cursorPos.x >= clientArea.x + clientArea.width - triggerDistance || Workspace.cursorPos.y <= clientArea.y + triggerDistance || Workspace.cursorPos.y >= clientArea.y + clientArea.height - triggerDistance) {
                             const padding = config.layouts[currentLayout].padding || 0;
                             const halfPadding = padding / 2;
-                            currentZones.repeater.model.forEach((zone, zoneIndex) => {
-                                const zoneItem = currentZones.repeater.itemAt(zoneIndex);
-                                const itemGlobal = zoneItem.mapToGlobal(Qt.point(0, 0));
+                            config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {
+                                const geometry = zoneGeometry(currentLayout, zoneIndex, activeScreen);
                                 let zoneGeometry = {
-                                    "x": itemGlobal.x - padding / 2,
-                                    "y": itemGlobal.y - padding / 2,
-                                    "width": zoneItem.width + padding,
-                                    "height": zoneItem.height + padding
+                                    "x": geometry.x - padding / 2,
+                                    "y": geometry.y - padding / 2,
+                                    "width": geometry.width + padding,
+                                    "height": geometry.height + padding
                                 };
                                 //adjust most left edge
-                                if (zoneGeometry.x <= halfPadding) {
-                                    zoneGeometry.x = 0;
+                                if (zoneGeometry.x <= clientArea.x + halfPadding) {
+                                    zoneGeometry.x = clientArea.x;
                                     zoneGeometry.width += padding;
                                 }
                                 //adjust most top edge
-                                if (zoneGeometry.y <= halfPadding) {
-                                    zoneGeometry.y = 0;
+                                if (zoneGeometry.y <= clientArea.y + halfPadding) {
+                                    zoneGeometry.y = clientArea.y;
                                     zoneGeometry.height += padding;
                                 }
                                 //adjust most right edge
-                                if (zoneGeometry.x + zoneGeometry.width >= clientArea.width - halfPadding)
+                                if (zoneGeometry.x + zoneGeometry.width >= clientArea.x + clientArea.width - halfPadding)
                                     zoneGeometry.width += halfPadding;
 
                                 //adjust most bottom edge
-                                if (zoneGeometry.y + zoneGeometry.height >= clientArea.height - halfPadding)
+                                if (zoneGeometry.y + zoneGeometry.height >= clientArea.y + clientArea.height - halfPadding)
                                     zoneGeometry.height += halfPadding;
 
                                 // check if cursor is inside the zone geometry

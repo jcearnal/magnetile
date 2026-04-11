@@ -49,6 +49,19 @@ export function loadConfig() {
     // TODO: Notify user about invalid config and using defaults instead
     layouts = defaultLayouts;
   }
+  if (!Array.isArray(layouts) || layouts.length === 0) {
+    layouts = defaultLayouts;
+  }
+
+  let monitorLayouts;
+  try {
+    monitorLayouts = JSON.parse(KWin.readConfig("monitorLayoutsJson", "{}"));
+  } catch (e) {
+    monitorLayouts = {};
+  }
+  if (!monitorLayouts || Array.isArray(monitorLayouts) || typeof monitorLayouts !== "object") {
+    monitorLayouts = {};
+  }
 
   config.enableZoneSelector = KWin.readConfig("enableZoneSelector", true);
   config.zoneSelectorTriggerDistance = KWin.readConfig("zoneSelectorTriggerDistance", 1);
@@ -60,6 +73,7 @@ export function loadConfig() {
   config.edgeSnappingTriggerDistance = KWin.readConfig("edgeSnappingTriggerDistance", 1);
   config.rememberWindowGeometries = KWin.readConfig("rememberWindowGeometries", true);
   config.trackLayoutPerScreen = KWin.readConfig("trackLayoutPerScreen", false);
+  config.monitorLayouts = monitorLayouts;
   config.trackLayoutPerDesktop = KWin.readConfig("trackLayoutPerDesktop", false);
   config.showOsdMessages = KWin.readConfig("showOsdMessages", true);
   config.fadeWindowsWhileMoving = KWin.readConfig("fadeWindowsWhileMoving", false);
