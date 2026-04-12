@@ -197,7 +197,10 @@ When `enableDebugLogging` is enabled, resize start logs include the active
 layout/zone, resize participants, and same-session windows skipped because they
 were filtered or outside the resize scope. `enableDebugOverlay` is independent
 from logging and opens a resize-only debug dialog with the current resize
-snapshot summary while a window is being resized.
+snapshot summary while a window is being resized. The resize debug dialog is
+shown and hidden explicitly on resize start/end and config reload because
+`PlasmaCore.Dialog` visibility bindings can remain stale across KWin script
+reloads.
 
 The implementation is edge-adjacent, not a full tile-tree solver. It works best for non-overlapping grids and shared-edge layouts.
 
@@ -302,6 +305,10 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 - Use `tools/layout-editor.html` to import, edit, copy, and reapply layout JSON.
 - Repeat connected resize on a secondary monitor if available.
 - Test at fractional scaling if available.
+- During daily-driver testing, record resize jitter, windows that fail to
+  participate, duplicate-looking participants in resize diagnostics, stale
+  shortcut or signal behavior after reloads, and scope bugs involving monitors,
+  virtual desktops, activities, or scaling changes.
 
 ## Feature Ideas Already Requested
 

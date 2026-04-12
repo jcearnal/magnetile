@@ -558,6 +558,24 @@ KWin logs, while the overlay shows the same resize summary while dragging.
 Magnetile reports the active resize group, participating windows, and windows
 skipped because they were filtered or outside the current scope.
 
+If the resize debug overlay remains visible after disabling it, reload the
+current script build. A normal reload should be enough for config-only changes:
+
+```sh
+tools/reload-clean.sh --normal
+```
+
+If the overlay was created by an older running QML instance, restart KWin:
+
+```sh
+tools/reload-clean.sh --restart
+```
+
+While daily driving Magnetile, useful things to note are resize jitter, windows
+that do not follow a resize, duplicated-looking resize participants, apps that
+resist requested geometry, stale shortcuts after reloads, and behavior changes
+after monitor, desktop, activity, or scaling changes.
+
 ## Testing Free Movement
 
 1. Move a window into a zone.
