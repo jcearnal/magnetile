@@ -1036,7 +1036,7 @@ Item {
 
     function connectSignals(client) {
         function onInteractiveMoveResizeStarted() {
-            if (client.magnetileSignalToken !== root.signalToken)
+            if (!root || client.magnetileSignalToken !== root.signalToken)
                 return;
 
             Utils.log("Interactive move/resize started for client " + client.resourceClass.toString());
@@ -1089,7 +1089,7 @@ Item {
         }
 
         function onInteractiveMoveResizeStepped() {
-            if (client.magnetileSignalToken !== root.signalToken)
+            if (!root || client.magnetileSignalToken !== root.signalToken)
                 return;
 
             if (client.resizeable) {
@@ -1100,7 +1100,7 @@ Item {
         }
 
         function onInteractiveMoveResizeFinished() {
-            if (client.magnetileSignalToken !== root.signalToken)
+            if (!root || client.magnetileSignalToken !== root.signalToken)
                 return;
 
             Utils.log("Interactive move/resize finished for client " + client.resourceClass.toString());
@@ -1138,7 +1138,7 @@ Item {
 
         // fix from https://github.com/gerritdevriese/kzones/pull/25
         function onFullScreenChanged() {
-            if (client.magnetileSignalToken !== root.signalToken)
+            if (!root || client.magnetileSignalToken !== root.signalToken)
                 return;
 
             Utils.log("Client fullscreen: " + client.resourceClass.toString() + " (fullscreen " + client.fullScreen + ")");

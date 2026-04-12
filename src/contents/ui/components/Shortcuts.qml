@@ -2,6 +2,8 @@ import QtQuick
 import org.kde.kwin
 
 Item {
+    readonly property var shiftedNumberKeys: ["!", "@", "#", "$", "%", "^", "&", "*", "("]
+
     signal cycleLayouts()
     signal cycleLayoutsReversed()
     signal moveActiveWindowToNextZone()
@@ -108,6 +110,15 @@ Item {
                 name: "Magnetile: Activate layout " + modelData
                 text: "Magnetile: Activate layout " + modelData
                 sequence: "Ctrl+Alt+Shift+" + modelData
+                onActivated: {
+                    activateLayout(modelData - 1);
+                }
+            }
+
+            ShortcutHandler {
+                name: "Magnetile: Activate layout " + modelData + " (shifted key)"
+                text: "Magnetile: Activate layout " + modelData + " (shifted key)"
+                sequence: "Ctrl+Alt+" + shiftedNumberKeys[modelData - 1]
                 onActivated: {
                     activateLayout(modelData - 1);
                 }
