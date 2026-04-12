@@ -166,6 +166,16 @@ Item {
         };
     }
 
+    function updateDebugDialog() {
+        if (config.enableDebugOverlay && resizing) {
+            debugDialog.visible = true;
+            debugDialog.setWidth(Workspace.virtualScreenSize.width);
+            debugDialog.setHeight(Workspace.virtualScreenSize.height);
+        } else {
+            debugDialog.visible = false;
+        }
+    }
+
     function validLayoutIndex(layout) {
         const index = Number(layout);
         return config.layouts && isFinite(index) && index >= 0 && index < config.layouts.length;
@@ -1240,6 +1250,7 @@ Item {
                     moved = false;
                     resizing = true;
                     freeMoving = false;
+                    updateDebugDialog();
                 }
             }
         }
@@ -1295,6 +1306,7 @@ Item {
             moved = false;
             resizing = false;
             freeMoving = false;
+            updateDebugDialog();
         }
 
         // fix from https://github.com/gerritdevriese/kzones/pull/25
@@ -1355,6 +1367,7 @@ Item {
         for (let i = 0; i < Workspace.stackingOrder.length; i++)
             disconnectSignals(Workspace.stackingOrder[i]);
 
+        debugDialog.visible = false;
         Utils.log("Script disposed");
     }
 
@@ -1367,7 +1380,7 @@ Item {
         backgroundHints: PlasmaCore.Types.NoBackground
         flags: Qt.BypassWindowManagerHint | Qt.FramelessWindowHint | Qt.Popup
         hideOnWindowDeactivate: false
-        visible: config.enableDebugOverlay && resizing
+        visible: false
         outputOnly: true
         opacity: 1
         width: displaySize.width
@@ -1733,6 +1746,7 @@ Item {
             resizedZoneGeometries = new Object();
             Core.loadConfig();
             refreshClientArea();
+            updateDebugDialog();
         }
 
         target: Options
