@@ -6,7 +6,7 @@
 
 KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
-[![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/badge/AUR-kwin--scripts--magnetile-1793D1?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile)
+[![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/badge/AUR-kwin--scripts--magnetile-1793D1?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile) [![Layout Editor](https://img.shields.io/badge/Layout%20Editor-GitHub%20Pages-00856f)](https://jcearnal.github.io/magnetile/)
 
 Magnetile is a GPL-3.0 derivative of KZones. It keeps the core FancyZones-style
 zone workflow that made KZones useful, then extends it for a Wayland-only KDE
@@ -93,11 +93,13 @@ to put the window back under Magnetile control.
 
 ![](./media/free-movement.gif)
 
-#### Visual Layout Helper
+#### Visual Layout Editor
 
-Use the local browser editor at `tools/layout-editor.html` to design layouts
-without writing JSON by hand. The helper previews padding, screen ratios, and
-zone snapping, then exports the same JSON schema Magnetile uses at runtime.
+Use the standalone browser editor at
+[https://jcearnal.github.io/magnetile/](https://jcearnal.github.io/magnetile/)
+to design layouts without writing JSON by hand. The editor previews padding,
+screen ratios, and zone snapping, then exports the shared layout JSON schema
+used by Magnetile and KZones.
 
 ![](./media/editor.gif)
 
@@ -268,16 +270,22 @@ You can define your own layouts in the **Layouts** tab in the script settings.
 `layoutsJson` is still the source of truth, but you do not have to hand-edit it
 from scratch.
 
-#### Visual helper editor
+#### Visual layout editor
 
-The visual layout customizer is the local HTML file:
+The visual layout editor is available on GitHub Pages:
 
-`tools/layout-editor.html`
+[https://jcearnal.github.io/magnetile/](https://jcearnal.github.io/magnetile/)
 
-Open it from the cloned Magnetile repository in any browser. For example, if
-the repo is at `~/projects/magnetile`, open:
+The source lives in [web-editor/](./web-editor/). For local development, run a
+static server from the repository root and open `/web-editor/`:
 
-`file:///home/YOUR_USER/projects/magnetile/tools/layout-editor.html`
+```sh
+python3 -m http.server 8000
+```
+
+Then open:
+
+`http://localhost:8000/web-editor/`
 
 The customizer is a browser helper, not a KWin settings page. It cannot write
 KWin settings directly.
@@ -288,15 +296,19 @@ To use it:
    Scripts / Magnetile / ⚙️`.
 2. Go to the **Layouts** tab.
 3. Copy the full JSON from the layout text box.
-4. Open `tools/layout-editor.html` in a browser.
+4. Open [the visual layout editor](https://jcearnal.github.io/magnetile/).
 5. Paste the JSON into the editor's JSON box and click **Import pasted JSON**.
 6. Edit layouts and zones visually.
-7. Click **Copy JSON**.
+7. Keep **Magnetile** selected as the export target and click **Copy JSON**.
 8. Paste the generated JSON back into Magnetile's **Layouts** tab.
 9. Apply the settings, then disable and enable Magnetile or restart KWin if the
    new layout does not appear immediately.
 
-You can also open and save `.json` files in the helper for backup or reuse.
+The editor can also export KZones-compatible layout JSON. KZones users can
+select **KZones** as the export target and paste the generated JSON into
+`System Settings / Window Management / KWin Scripts / KZones / Layouts`.
+
+You can also open and save `.json` files in the editor for backup or reuse.
 
 The helper editor can:
 

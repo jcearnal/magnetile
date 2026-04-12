@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KWin Layout Editor for Magnetile and KZones</title>
+  <meta name="description" content="Client-side visual layout editor for Magnetile and KZones KWin tiling scripts.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <img src="assets/magnetile-icon.png" alt="" width="72" height="72">
+      <div>
+        <p class="eyebrow">KWin tiling scripts</p>
+        <h1>Visual Layout Editor</h1>
+        <p class="lede">
+          Design percentage-based zone layouts in the browser, then export JSON for Magnetile or KZones.
+        </p>
+      </div>
+    </div>
+    <nav class="project-links" aria-label="Project links">
+      <a href="https://github.com/jcearnal/magnetile">Magnetile</a>
+      <a href="https://github.com/gerritdevriese/kzones">KZones</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="intro" aria-labelledby="intro-title">
+      <div>
+        <h2 id="intro-title">Layouts that work in both projects</h2>
+        <p>
+          Magnetile and KZones both use an array of layouts with pixel padding and percentage-based
+          zones. Optional zone metadata such as applications, indicators, and colors is preserved
+          when you import existing JSON.
+        </p>
+      </div>
+      <div class="badges" aria-label="Compatibility">
+        <span>Magnetile compatible</span>
+        <span>KZones compatible</span>
+        <span>GPL-3.0</span>
+        <span>Client-side only</span>
+      </div>
+      <ol class="usage">
+        <li>Pick a preset or import your current layout JSON.</li>
+        <li>Create, drag, resize, rename, and tune zones on the canvas.</li>
+        <li>Choose an export target and copy the JSON into the KWin script settings.</li>
+      </ol>
+    </section>
+
+    <section class="editor-grid" aria-label="Layout editor">
+      <aside class="panel layout-panel">
+        <h2>Layouts</h2>
+        <div class="toolbar">
+          <button id="loadPresetPriority" type="button">Priority</button>
+          <button id="loadPresetQuadrants" type="button">Quadrants</button>
+          <button id="loadPresetColumns" type="button">Columns</button>
+        </div>
+        <div class="layouts" id="layoutList"></div>
+        <div class="toolbar">
+          <button id="addLayout" type="button">New</button>
+          <button id="duplicateLayout" type="button">Duplicate</button>
+          <button id="deleteLayout" type="button" class="danger">Delete</button>
+          <button id="moveLayoutUp" type="button">Up</button>
+          <button id="moveLayoutDown" type="button">Down</button>
+        </div>
+        <label>Name <input id="layoutName" autocomplete="off"></label>
+        <label>Padding in pixels <input id="layoutPadding" type="number" min="0" step="1"></label>
+      </aside>
+
+      <section class="panel canvas-panel">
+        <div class="section-head">
+          <div>
+            <h2>Canvas</h2>
+            <p>Drag zones to move them. Pull the lower-right handle to resize.</p>
+          </div>
+          <button id="clearCanvas" type="button" class="danger">Clear</button>
+        </div>
+        <div class="toolbar">
+          <button id="addZone" type="button" class="primary">Add zone</button>
+          <button id="deleteZone" type="button" class="danger">Delete zone</button>
+          <button id="resetCanvas" type="button">Reset defaults</button>
+        </div>
+        <div class="toolbar">
+          <label class="inline"><input id="snapEnabled" type="checkbox" checked> Snap</label>
+          <label>Grid % <input id="snapStep" type="number" min="0.1" max="100" step="0.1" value="5"></label>
+          <label class="inline"><input id="snapEdges" type="checkbox" checked> Edges</label>
+          <label class="inline"><input id="snapZones" type="checkbox" checked> Zones</label>
+        </div>
+        <div class="toolbar">
+          <label>Preview
+            <select id="previewRatio">
+              <option value="16:9">16:9</option>
+              <option value="16:10">16:10</option>
+              <option value="21:9">21:9</option>
+              <option value="32:9">32:9</option>
+              <option value="4:3">4:3</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label>Width <input id="previewWidth" type="number" min="100" step="1" value="1920"></label>
+          <label>Height <input id="previewHeight" type="number" min="100" step="1" value="1080"></label>
+        </div>
+        <div class="canvas-wrap" id="canvas" aria-label="Layout preview"></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <aside class="panel export-panel">
+        <h2>Export</h2>
+        <fieldset class="format-selector">
+          <legend>Target format</legend>
+          <label class="inline"><input type="radio" name="format" value="magnetile" checked> Magnetile</label>
+          <label class="inline"><input type="radio" name="format" value="kzones"> KZones</label>
+        </fieldset>
+        <p id="formatHelp" class="format-help"></p>
+        <div class="toolbar prominent">
+          <button id="copyJson" type="button" class="primary">Copy JSON</button>
+          <button id="saveJson" type="button">Save file</button>
+        </div>
+        <div class="toolbar">
+          <button id="loadJson" type="button">Import pasted JSON</button>
+          <button id="openJson" type="button">Open JSON file</button>
+        </div>
+        <input id="jsonFile" type="file" accept="application/json,.json" hidden>
+        <textarea id="json" spellcheck="false" aria-label="Exported JSON"></textarea>
+
+        <h2>Zone</h2>
+        <div class="zones" id="zoneList"></div>
+        <div class="form-grid">
+          <label>X % <input id="zoneX" type="number" min="0" max="100" step="0.1"></label>
+          <label>Y % <input id="zoneY" type="number" min="0" max="100" step="0.1"></label>
+          <label>Width % <input id="zoneWidth" type="number" min="0.1" max="100" step="0.1"></label>
+          <label>Height % <input id="zoneHeight" type="number" min="0.1" max="100" step="0.1"></label>
+          <label>Color <input id="zoneColor" placeholder="#00856f" autocomplete="off"></label>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="js/editor.js"></script>
+</body>
+</html>
