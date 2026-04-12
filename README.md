@@ -65,17 +65,40 @@ Compared with the original KZones base, Magnetile adds:
 
 ## Features
 
-### Connected Resizing
+### Magnetile-Specific Features
 
-Connected resizing is Magnetile's headline feature. Resize a snapped window
-with the mouse and adjacent snapped windows on the same output, virtual
-desktop, activity, and layout resize live with it so the tile group stays
-connected. Future snaps on that output use the adjusted runtime grid until the
-script reloads or the configuration changes.
+These features distinguish Magnetile from the original KZones base.
 
-![](./media/connected-resize.gif)
+#### Fluid Connected Resizing
+
+Resize a snapped window with the mouse and adjacent snapped windows on the same
+output, virtual desktop, activity, and layout resize live with it so the tile
+group stays connected. Future snaps on that output use the adjusted runtime
+grid until the script reloads or the configuration changes.
+
+![](./media/fluid-resize.gif)
 
 Recorded on 5120x1440.
+
+#### Free Movement
+
+Press `Ctrl+Alt+F` to toggle free movement for the active window. If you press
+it while dragging a window, the current drop will stay at the custom size and
+position. Press `Ctrl+Alt+F` again, or use any zone shortcut or snap shortcut,
+to put the window back under Magnetile control.
+
+![](./media/free-movement.gif)
+
+#### Multi-Monitor Presets
+
+Each KWin output can seed its own default layout. Runtime layout switching can
+be tracked independently per monitor, and optionally per virtual desktop.
+
+#### Visual Layout Helper
+
+Use the local browser editor at `tools/layout-editor.html` to design layouts
+without writing JSON by hand. The helper previews padding, screen ratios, and
+zone snapping, then exports the same JSON schema Magnetile uses at runtime.
 
 ### KZones-Inherited Workflow
 
@@ -118,24 +141,6 @@ Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
 
 ![](./media/shortcuts.gif)
-
-### Free Movement
-
-Press `Ctrl+Alt+F` to toggle free movement for the active window. If you press
-it while dragging a window, the current drop will stay at the custom size and
-position. Press `Ctrl+Alt+F` again, or use any zone shortcut or snap shortcut,
-to put the window back under Magnetile control.
-
-### Multi-Monitor Presets
-
-Each KWin output can seed its own default layout. Runtime layout switching can
-be tracked independently per monitor, and optionally per virtual desktop.
-
-### Visual Layout Helper
-
-Use the local browser editor at `tools/layout-editor.html` to design layouts
-without writing JSON by hand. The helper previews padding, screen ratios, and
-zone snapping, then exports the same JSON schema Magnetile uses at runtime.
 
 ### Theming
 

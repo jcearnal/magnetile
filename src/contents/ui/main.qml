@@ -29,6 +29,19 @@ Item {
     property string signalToken: Math.random().toString() + Date.now().toString()
     property bool disposing: false
 
+    function resizeDialogToClientArea(dialog) {
+        const width = Math.max(1, Math.round(clientArea.width || Workspace.virtualScreenSize.width || 1));
+        const height = Math.max(1, Math.round(clientArea.height || Workspace.virtualScreenSize.height || 1));
+        dialog.setWidth(width);
+        dialog.setHeight(height);
+    }
+
+    function hideDialogSurface(dialog) {
+        dialog.visible = false;
+        dialog.setWidth(1);
+        dialog.setHeight(1);
+    }
+
     function clientOutput(client) {
         return client && (client.output || client.screen || Workspace.activeScreen);
     }
@@ -180,11 +193,11 @@ Item {
 
     function updateDebugDialog() {
         if (config.enableDebugOverlay && resizing) {
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+            resizeDialogToClientArea(debugDialog);
             debugDialog.visible = true;
-            debugDialog.setWidth(Workspace.virtualScreenSize.width);
-            debugDialog.setHeight(Workspace.virtualScreenSize.height);
         } else {
-            debugDialog.visible = false;
+            hideDialogSurface(debugDialog);
         }
     }
 
@@ -1402,7 +1415,8 @@ Item {
         for (let i = 0; i < Workspace.stackingOrder.length; i++)
             disconnectSignals(Workspace.stackingOrder[i]);
 
-        debugDialog.visible = false;
+        hideDialogSurface(debugDialog);
+        hideDialogSurface(mainDialog);
         Utils.log("Script disposed");
     }
 
@@ -1418,8 +1432,10 @@ Item {
         visible: false
         outputOnly: true
         opacity: 1
-        width: displaySize.width
-        height: displaySize.height
+        x: clientArea.x || 0
+        y: clientArea.y || 0
+        width: 1
+        height: 1
 
         Item {
             width: debugDialog.width
@@ -1436,14 +1452,13 @@ Item {
         id: mainDialog
 
         function show() {
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+            resizeDialogToClientArea(mainDialog);
             mainDialog.visible = true;
-            mainDialog.setWidth(Workspace.virtualScreenSize.width);
-            mainDialog.setHeight(Workspace.virtualScreenSize.height);
-            refreshClientArea();
         }
 
         function hide() {
-            mainDialog.visible = false;
+            hideDialogSurface(mainDialog);
             zoneSelector.expanded = false;
             zoneSelector.near = false;
             highlightedZone = -1;
@@ -1459,8 +1474,10 @@ Item {
         visible: false
         outputOnly: true
         opacity: 1
-        width: displaySize.width
-        height: displaySize.height
+        x: clientArea.x || 0
+        y: clientArea.y || 0
+        width: 1
+        height: 1
 
         Item {
             id: mainItem
@@ -1480,6 +1497,7 @@ Item {
                 repeat: true
                 onTriggered: {
                     refreshClientArea();
+                    resizeDialogToClientArea(mainDialog);
                     let hoveringZone = -1;
                     // zone overlay
                     const currentZones = repeaterLayout.itemAt(currentLayout);
@@ -1558,8 +1576,8 @@ Item {
             }
 
             Item {
-                x: clientArea.x || 0
-                y: clientArea.y || 0
+                x: 0
+                y: 0
                 width: clientArea.width || 0
                 height: clientArea.height || 0
                 clip: true
