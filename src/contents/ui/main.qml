@@ -707,6 +707,10 @@ Item {
         return name;
     }
 
+    function osdLayoutSelection() {
+        return `Layout ${currentLayout + 1}: ${osdLayoutName()}`;
+    }
+
     function checkFilter(client) {
         // filter out abnormal windows like docks, panels, etc...
         if (!client)
@@ -1372,12 +1376,12 @@ Item {
         onCycleLayouts: {
             setCurrentLayout((currentLayout + 1) % config.layouts.length);
             highlightedZone = -1;
-            Utils.osd(osdLayoutName());
+            Utils.osd(osdLayoutSelection());
         }
         onCycleLayoutsReversed: {
             setCurrentLayout((currentLayout - 1 + config.layouts.length) % config.layouts.length);
             highlightedZone = -1;
-            Utils.osd(osdLayoutName());
+            Utils.osd(osdLayoutSelection());
         }
         onMoveActiveWindowToNextZone: {
             const client = Workspace.activeWindow;
@@ -1414,11 +1418,15 @@ Item {
             moveClientToZone(Workspace.activeWindow, zone);
         }
         onActivateLayout: function(layout) {
-            refreshClientAreaForClient(Workspace.activeWindow);
+            if (Workspace.activeWindow)
+                refreshClientAreaForClient(Workspace.activeWindow);
+            else
+                refreshClientArea(activeScreen || Workspace.activeScreen);
+
             if (layout <= config.layouts.length - 1) {
                 setCurrentLayout(layout);
                 highlightedZone = -1;
-                Utils.osd(osdLayoutName());
+                Utils.osd(osdLayoutSelection());
             } else {
                 Utils.osd(`Layout ${layout + 1} does not exist`);
             }
