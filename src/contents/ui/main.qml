@@ -229,14 +229,19 @@ Item {
             if (clientOutput(client) !== output || !sameDesktop(client, desktop) || clientActivity(client) !== activity)
                 continue;
 
-            if (client.layout !== layout || client.zone === undefined || client.zone === -1)
-                continue;
+            let zone = -1;
+            if (client.layout === layout && client.zone !== undefined && client.zone !== -1)
+                zone = client.zone;
+            else
+                zone = closestConfiguredZone(client, layout, output);
 
-            if (client.zone < 0 || client.zone >= config.layouts[layout].zones.length)
+            if (zone < 0 || zone >= config.layouts[layout].zones.length)
                 continue;
 
             client.setMaximize(false, false);
-            client.frameGeometry = zoneGeometry(layout, client.zone, output);
+            client.frameGeometry = zoneGeometry(layout, zone, output);
+            client.zone = zone;
+            client.layout = layout;
             client.desktop = desktop;
             client.activity = activity;
             client.magnetileFreeMove = false;
@@ -246,6 +251,33 @@ Item {
 
         resizedZoneGeometries = Object.assign({}, resizedZoneGeometries);
         Utils.osd(count > 0 ? `Reset ${count} window${count === 1 ? "" : "s"} to ${config.layouts[layout].name}` : `Reset ${config.layouts[layout].name}`);
+    }
+
+    function closestConfiguredZone(client, layoutIndex, screen) {
+        const layout = clampLayoutIndex(layoutIndex);
+        const zones = config.layouts[layout].zones;
+        const geometry = client.frameGeometry;
+        const center = {
+            "x": geometry.x + geometry.width / 2,
+            "y": geometry.y + geometry.height / 2
+        };
+        let closestZone = -1;
+        let closestDistance = Infinity;
+
+        for (let i = 0; i < zones.length; i++) {
+            const zone = zoneGeometry(layout, i, screen);
+            const zoneCenter = {
+                "x": zone.x + zone.width / 2,
+                "y": zone.y + zone.height / 2
+            };
+            const distance = Math.sqrt(Math.pow(center.x - zoneCenter.x, 2) + Math.pow(center.y - zoneCenter.y, 2));
+            if (distance < closestDistance) {
+                closestZone = i;
+                closestDistance = distance;
+            }
+        }
+
+        return closestZone;
     }
 
     function snapshotZoneGeometries(layoutIndex, screen) {
