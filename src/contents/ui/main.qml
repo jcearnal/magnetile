@@ -926,7 +926,7 @@ Item {
     function connectedResize(client) {
         const snapshot = client.magnetileResizeSnapshot;
         if (!snapshot || snapshot.zone === undefined || snapshot.zone === -1)
-            return;
+            return false;
 
         const oldGeometry = rectEdges(snapshot.geometry);
         const oldLogicalGeometry = rectEdges(snapshot.logicalGeometry || snapshot.geometry);
@@ -941,8 +941,9 @@ Item {
         };
 
         if (!changed.left && !changed.right && !changed.top && !changed.bottom)
-            return;
+            return false;
 
+        let applied = false;
         let constrainedLeft = newGeometry.left;
         let constrainedTop = newGeometry.top;
         let constrainedRight = newGeometry.right;
@@ -992,6 +993,7 @@ Item {
             if (!rectsClose(client.frameGeometry, Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height))) {
                 client.setMaximize(false, false);
                 client.frameGeometry = Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height);
+                applied = true;
             }
         }
 
@@ -1056,18 +1058,17 @@ Item {
             if (nextWidth < minSize || nextHeight < minSize)
                 continue;
 
-            if (Math.abs(nextLeft - oldOther.left) <= geometryTolerance &&
-                    Math.abs(nextTop - oldOther.top) <= geometryTolerance &&
-                    Math.abs(nextRight - oldOther.right) <= geometryTolerance &&
-                    Math.abs(nextBottom - oldOther.bottom) <= geometryTolerance)
+            const nextGeometry = roundedRect(nextLeft, nextTop, nextWidth, nextHeight);
+            if (rectsClose(window.frameGeometry, nextGeometry))
                 continue;
 
             window.setMaximize(false, false);
-            window.frameGeometry = roundedRect(nextLeft, nextTop, nextWidth, nextHeight);
+            window.frameGeometry = nextGeometry;
             window.zone = item.zone;
             window.layout = item.layout;
             window.desktop = snapshot.desktop;
             window.activity = snapshot.activity;
+            applied = true;
         }
 
         client.zone = snapshot.zone;
@@ -1075,6 +1076,7 @@ Item {
         client.desktop = snapshot.desktop;
         client.activity = snapshot.activity;
         updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
+        return applied;
     }
 
     function disconnectSignals(client) {
@@ -1169,6 +1171,9 @@ Item {
             if (client.resizeable) {
                 if (moving && checkFilter(client))
                     moved = true;
+
+                if (resizing && checkFilter(client) && client.magnetileResizeSnapshot)
+                    connectedResize(client);
 
             }
         }

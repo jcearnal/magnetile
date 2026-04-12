@@ -161,22 +161,26 @@ Flow:
    the snapshot path first recovers the resized window's layout/zone from its
    current frame geometry across all configured layouts, then recovers other
    same-layout windows in the resize scope.
-3. `onInteractiveMoveResizeFinished` calls `connectedResize(client)`.
-4. `connectedResize` compares the resized window's old and new edges.
-5. Adjacent windows whose old edge touched the resized edge, or whose old edge
+3. `onInteractiveMoveResizeStepped` calls `connectedResize(client)` during the
+   drag so adjacent windows follow live. The solver always compares against the
+   original snapshot, not against already-mutated neighbor windows.
+4. `onInteractiveMoveResizeFinished` calls `connectedResize(client)` again as
+   the final correctness pass.
+5. `connectedResize` compares the resized window's old and new edges.
+6. Adjacent windows whose old edge touched the resized edge, or whose old edge
    was separated by the layout padding gap, are resized to follow the new edge.
    Padded layouts preserve the measured gap between the resized window and the
    neighbor instead of collapsing the windows together.
-6. If the dragged edge would consume an adjacent neighbor past the minimum
+7. If the dragged edge would consume an adjacent neighbor past the minimum
    tracked size, Magnetile constrains the dragged window before applying
    neighbor geometry so the solver does not leave overlapping windows behind.
-7. Resize snapshots store both current frame geometry and original logical zone
+8. Resize snapshots store both current frame geometry and original logical zone
    geometry. Neighbor detection can use either source so full-height zones can
    stay connected to stacked half-height zones across their shared logical edge.
-8. Stacked or side-by-side sibling zones that share the same logical outer edge
+9. Stacked or side-by-side sibling zones that share the same logical outer edge
    follow that edge together, so accidentally grabbing one half of a split stack
    still keeps the other half aligned.
-9. `Ctrl+Alt+R` clears the current layout's resized runtime geometry for the
+10. `Ctrl+Alt+R` clears the current layout's resized runtime geometry for the
    active output, desktop, and activity, then moves windows in that layout back
    to their configured zone geometry. If a window's dynamic layout/zone state is
    stale, reset falls back to the nearest configured zone.
@@ -235,7 +239,8 @@ provide a matching key-release signal that can be used as a robust global
 
 ## Known Limitations
 
-- Connected resize runs after mouse release, not continuously during drag.
+- Connected resize depends on KWin's interactive resize step events, so apps
+  that throttle or reject scripted geometry updates may feel less fluid.
 - Overlapping zones and multi-zone spanning are not fully solved.
 - Multiple windows stacked in one zone can make resize behavior ambiguous.
 - Some GTK/Flatpak apps may fight requested geometry.

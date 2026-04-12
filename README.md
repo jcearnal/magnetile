@@ -45,8 +45,9 @@ users have a familiar workflow.
 
 Compared with the original KZones base, Magnetile adds:
 
-- Connected resizing: adjacent tiled windows resize after a manual edge resize,
-  and later snaps can follow the resized runtime grid.
+- Fluid connected resizing: adjacent tiled windows resize while a snapped
+  window is manually resized, and later snaps can follow the resized runtime
+  grid.
 - KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
 - Resolution-independent geometry fixes for multi-monitor layouts, including
   outputs that do not start at `x=0, y=0`.
@@ -68,9 +69,9 @@ Compared with the original KZones base, Magnetile adds:
 
 Connected resizing is Magnetile's headline feature. Resize a snapped window
 with the mouse and adjacent snapped windows on the same output, virtual
-desktop, activity, and layout resize with it so the tile group stays connected.
-Future snaps on that output use the adjusted runtime grid until the script
-reloads or the configuration changes.
+desktop, activity, and layout resize live with it so the tile group stays
+connected. Future snaps on that output use the adjusted runtime grid until the
+script reloads or the configuration changes.
 
 ![](./media/connected-resize.gif)
 
@@ -540,8 +541,8 @@ List of all available shortcuts:
 1. Open three normal windows.
 2. Move them into the default Priority Grid using `Ctrl+Alt+1`, `Ctrl+Alt+2`, and `Ctrl+Alt+3`.
 3. Resize the center window with the mouse by dragging its left or right edge.
-4. Release the mouse.
-5. The adjacent window sharing that edge should resize to fill the space or yield space.
+4. The adjacent window sharing that edge should resize live while dragging.
+5. Release the mouse and confirm the final geometry remains connected.
 6. For padded layouts, the visual gap between connected windows should remain.
 7. For split stacks, resize the full-height neighbor to move both stacked
    windows together. If you grab one half of the stack by accident, the matching
