@@ -1,6 +1,8 @@
 # Magnetile
 
-<img align="right" width="96" height="96" src="./media/icon.svg">
+<p align="center">
+  <img src="./media/multi-monitor-transparent.png" alt="Magnetile multi-monitor layout preview">
+</p>
 
 KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
@@ -89,13 +91,6 @@ to put the window back under Magnetile control.
 
 ![](./media/free-movement.gif)
 
-#### Multi-Monitor Presets
-
-Each KWin output can seed its own default layout. Runtime layout switching can
-be tracked independently per monitor, and optionally per virtual desktop.
-
-![](./media/multi-monitor-transparent.png)
-
 #### Visual Layout Helper
 
 Use the local browser editor at `tools/layout-editor.html` to design layouts
@@ -103,6 +98,11 @@ without writing JSON by hand. The helper previews padding, screen ratios, and
 zone snapping, then exports the same JSON schema Magnetile uses at runtime.
 
 ![](./media/editor.gif)
+
+#### Multi-Monitor Presets
+
+Each KWin output can seed its own default layout. Runtime layout switching can
+be tracked independently per monitor, and optionally per virtual desktop.
 
 ### KZones-Inherited Workflow
 
