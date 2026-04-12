@@ -100,6 +100,8 @@ Use the local browser editor at `tools/layout-editor.html` to design layouts
 without writing JSON by hand. The helper previews padding, screen ratios, and
 zone snapping, then exports the same JSON schema Magnetile uses at runtime.
 
+![](./media/editor.gif)
+
 ### KZones-Inherited Workflow
 
 Magnetile keeps the familiar zone selector, drag overlay, edge snapping,
