@@ -536,6 +536,15 @@ List of all available shortcuts:
 > [!NOTE]  
 > Not all shortcuts will be bound by default as they conflict with existing system bindings.
 
+## Cycling Stacked Windows
+
+Multiple windows can occupy the same Magnetile zone. Use `Ctrl+Alt+Up` and
+`Ctrl+Alt+Down` to cycle through visible windows in the active window's current
+zone. The OSD reports the zone, stack position, stack size, and selected window.
+
+Zone cycling is scoped to the same output, virtual desktop, activity, and
+layout. Minimized windows are skipped.
+
 ## Testing Connected Resize
 
 1. Open three normal windows.

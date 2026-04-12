@@ -133,13 +133,25 @@ Item {
         if (!client)
             return "<none>";
 
-        if (client.resourceClass)
-            return client.resourceClass.toString();
-
         if (client.caption)
             return client.caption.toString();
 
+        if (client.resourceClass)
+            return client.resourceClass.toString();
+
         return "<window>";
+    }
+
+    function clientStackLabel(client) {
+        if (!client)
+            return "<none>";
+
+        const caption = client.caption ? client.caption.toString() : "";
+        const resourceClass = client.resourceClass ? client.resourceClass.toString() : "";
+        if (caption && resourceClass && caption !== resourceClass)
+            return caption + " (" + resourceClass + ")";
+
+        return caption || resourceClass || "<window>";
     }
 
     function debugInfo() {
@@ -479,11 +491,11 @@ Item {
         const output = clientOutput(activeWindow);
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
             const client = Workspace.stackingOrder[i];
-            if (!checkFilter(client) || !clientInCurrentScope(client, output, Workspace.currentDesktop, Workspace.currentActivity))
+            if (!checkFilter(client) || client.minimized || !clientInCurrentScope(client, output, Workspace.currentDesktop, Workspace.currentActivity))
                 continue;
 
             recoverClientZone(client, layout, true);
-            if (client.zone === zone && client.layout === layout)
+            if (client.zone === zone && client.layout === layout && windows.indexOf(client) === -1)
                 windows.push(client);
 
         }
@@ -498,11 +510,19 @@ Item {
         // cycle through clients in zone
         if (clientsInZone.length > 0) {
             const index = clientsInZone.indexOf(Workspace.activeWindow);
+            let nextIndex = 0;
             if (index === -1)
-                Workspace.activeWindow = clientsInZone[0];
+                nextIndex = 0;
             else
-                Workspace.activeWindow = clientsInZone[(index + 1) % clientsInZone.length];
+                nextIndex = (index + 1) % clientsInZone.length;
+
+            const nextClient = clientsInZone[nextIndex];
+            Workspace.activeWindow = nextClient;
+            Utils.osd("Zone " + (zone + 1) + ": " + (nextIndex + 1) + "/" + clientsInZone.length + " " + clientStackLabel(nextClient));
+            return nextClient;
         }
+        Utils.osd("No other windows in zone " + (zone + 1));
+        return null;
     }
 
     function moveClientToZone(client, zone) {
@@ -871,6 +891,19 @@ Item {
         return clients;
     }
 
+    function resizeZoneStacks(snapshots) {
+        const stacks = {};
+        for (let i = 0; i < snapshots.length; i++) {
+            const item = snapshots[i];
+            const key = "z" + (item.zone + 1);
+            if (!stacks[key])
+                stacks[key] = [];
+
+            stacks[key].push(clientStackLabel(item.client));
+        }
+        return stacks;
+    }
+
     function snapshotResizeGroup(client) {
         let layout = validLayoutIndex(client.layout) ? client.layout : currentLayout;
         if (recoverClientZone(client, layout, true) === -1) {
@@ -899,7 +932,8 @@ Item {
             });
         }
 
-        const participantNames = snapshots.map(item => clientDebugName(item.client) + " z" + (item.zone + 1));
+        const participantNames = snapshots.map(item => clientStackLabel(item.client) + " z" + (item.zone + 1));
+        const zoneStacks = resizeZoneStacks(snapshots);
         resizeDebugInfo = {
             "active": true,
             "client": clientDebugName(client),
@@ -910,6 +944,7 @@ Item {
             "activity": activity || "",
             "participants": participantNames,
             "participantCount": snapshots.length,
+            "zoneStacks": zoneStacks,
             "skipped": resizeDebugInfo.skipped || [],
             "appliedCount": 0,
             "lastApplied": false

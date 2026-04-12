@@ -223,6 +223,12 @@ Current default shortcuts avoid numpad dependency:
 - `Ctrl+Alt+R`: reset windows in the current layout back to configured zone
   geometry.
 
+Zone stack cycling uses `Workspace.stackingOrder` scoped to the active window's
+output, virtual desktop, activity, layout, and zone. Minimized windows are
+skipped, duplicate object references are ignored, and the OSD reports the stack
+position and selected window. Resize diagnostics group participants by zone so
+stacked windows are visible while testing.
+
 KDE keeps old bindings in `~/.config/kglobalshortcutsrc`. If shortcut defaults change, existing installs may need live KGlobalAccel updates or manual changes in System Settings.
 Shortcut declaration changes and old dev-loaded signal handlers may require a
 full KWin restart with `qdbus6 org.kde.KWin /KWin org.kde.KWin.replace`.
@@ -302,6 +308,8 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
   layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
+- Stack two windows in the same zone, then use `Ctrl+Alt+Up/Down` to cycle the
+  active window through that zone's stack.
 - Use `tools/layout-editor.html` to import, edit, copy, and reapply layout JSON.
 - Repeat connected resize on a secondary monitor if available.
 - Test at fractional scaling if available.
