@@ -172,18 +172,20 @@ Enable **Magnetile** if it is not already enabled. Open Magnetile's settings
 with the gear button next to the script entry.
 
 When updating an existing install, KWin may keep an older script instance alive.
-If changes do not appear after `make`, restart KWin scripting:
+For normal QML/config changes, use the clean reload helper:
 
 ```sh
-qdbus6 org.kde.KWin /KWin reconfigure
-qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
+tools/reload-clean.sh --normal
 ```
 
-If that still does not reload the script, restart KWin:
+If shortcut declarations or signal handlers changed, or if old development
+loads still appear in KWin logs, restart KWin after installing:
 
 ```sh
-qdbus6 org.kde.KWin /KWin org.kde.KWin.replace
+tools/reload-clean.sh --restart
 ```
+
+The restart path calls `qdbus6 org.kde.KWin /KWin org.kde.KWin.replace`.
 
 ## Configuration
 

@@ -246,21 +246,25 @@ provide a matching key-release signal that can be used as a robust global
 
 ## Local Development
 
-Build and install:
+For normal runtime or config changes, build, install, enable, reconfigure, and
+restart KWin scripting with:
 
 ```sh
-make
-kwriteconfig6 --file kwinrc --group Plugins --key magnetileEnabled true
-qdbus6 org.kde.KWin /KWin reconfigure
-qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start
+tools/reload-clean.sh --normal
 ```
 
-Force a clean KWin restart when signal handlers or shortcut declarations have
-changed:
+Use the full restart path when shortcut declarations changed, when signal
+handler lifecycle changed, or when logs still mention stale development load
+paths such as temporary `src.XXXXXX` directories:
 
 ```sh
-qdbus6 org.kde.KWin /KWin org.kde.KWin.replace
+tools/reload-clean.sh --restart
 ```
+
+The full restart path packages and installs with `make`, enables Magnetile in
+`kwinrc`, then calls `qdbus6 org.kde.KWin /KWin org.kde.KWin.replace`. This is
+expected to be necessary for KGlobalAccel shortcut declaration changes and for
+clearing old QML closures left by temporary development loads.
 
 The Makefile uses `zip` when available and Python's `zipfile` module as a fallback.
 

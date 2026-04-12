@@ -26,6 +26,7 @@ Item {
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
     property int geometryTolerance: 3
     property string signalToken: Math.random().toString() + Date.now().toString()
+    property bool disposing: false
 
     function clientOutput(client) {
         return client && (client.output || client.screen || Workspace.activeScreen);
@@ -125,6 +126,48 @@ Item {
 
     function clientActivity(client) {
         return client && client.activity !== undefined ? client.activity : Workspace.currentActivity;
+    }
+
+    function validLayoutIndex(layout) {
+        const index = Number(layout);
+        return config.layouts && isFinite(index) && index >= 0 && index < config.layouts.length;
+    }
+
+    function validZoneIndex(layout, zone) {
+        if (!validLayoutIndex(layout))
+            return false;
+
+        const index = Number(zone);
+        return isFinite(index) && index >= 0 && index < config.layouts[Math.round(layout)].zones.length;
+    }
+
+    function clientInCurrentScope(client, output, desktop, activity) {
+        return clientOutput(client) === output && sameDesktop(client, desktop) && clientActivity(client) === activity;
+    }
+
+    function recoverClientZone(client, layout, fallbackToClosest) {
+        if (!checkFilter(client) || !validLayoutIndex(layout))
+            return -1;
+
+        const layoutIndex = clampLayoutIndex(layout);
+        if (validZoneIndex(layoutIndex, client.zone) && client.layout === layoutIndex)
+            return client.zone;
+
+        const matchedZone = matchZoneInLayout(client, layoutIndex);
+        if (matchedZone !== -1)
+            return matchedZone;
+
+        if (!fallbackToClosest)
+            return -1;
+
+        const closestZone = closestConfiguredZone(client, layoutIndex, clientOutput(client));
+        if (closestZone !== -1) {
+            client.zone = closestZone;
+            client.layout = layoutIndex;
+            client.desktop = Workspace.currentDesktop;
+            client.activity = Workspace.currentActivity;
+        }
+        return closestZone;
     }
 
     function refreshClientArea(screen) {
@@ -255,10 +298,8 @@ Item {
                 continue;
 
             let zone = -1;
-            if (client.layout === layout && client.zone !== undefined && client.zone !== -1)
-                zone = client.zone;
-            else
-                zone = closestConfiguredZone(client, layout, output);
+            if (clientInCurrentScope(client, output, desktop, activity))
+                zone = recoverClientZone(client, layout, true);
 
             if (zone < 0 || zone >= config.layouts[layout].zones.length)
                 continue;
@@ -390,7 +431,11 @@ Item {
         const output = clientOutput(activeWindow);
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
             const client = Workspace.stackingOrder[i];
-            if (client.zone === zone && client.layout === layout && sameDesktop(client, Workspace.currentDesktop) && clientActivity(client) === Workspace.currentActivity && clientOutput(client) === output && checkFilter(client))
+            if (!checkFilter(client) || !clientInCurrentScope(client, output, Workspace.currentDesktop, Workspace.currentActivity))
+                continue;
+
+            recoverClientZone(client, layout, true);
+            if (client.zone === zone && client.layout === layout)
                 windows.push(client);
 
         }
@@ -597,10 +642,10 @@ Item {
         Utils.log("Moving client " + client.resourceClass.toString() + " to neighbour " + direction);
         refreshClientAreaForClient(client);
         const zones = config.layouts[currentLayout].zones;
-        if (client.zone === -1 || client.layout !== currentLayout) {
-            moveClientToClosestZone(client);
-            return client.zone;
-        }
+        const currentZoneIndex = recoverClientZone(client, currentLayout, true);
+        if (currentZoneIndex === -1)
+            return null;
+
         const currentZone = zones[client.zone];
         let targetZoneIndex = -1;
         let minDistance = Infinity;
@@ -748,16 +793,11 @@ Item {
             if (window === client)
                 continue;
 
-            if (window.zone === undefined || window.zone === -1)
-                matchZoneInLayout(window, layout);
-
-            if (window.layout !== layout)
-                matchZoneInLayout(window, layout);
-
-            if (window.zone === undefined || window.zone === -1 || window.layout !== layout)
+            if (clientOutput(window) !== output || !sameDesktop(window, desktop) || clientActivity(window) !== activity)
                 continue;
 
-            if (clientOutput(window) !== output || !sameDesktop(window, desktop) || clientActivity(window) !== activity)
+            recoverClientZone(window, layout, true);
+            if (window.zone === undefined || window.zone === -1 || window.layout !== layout)
                 continue;
 
             clients.push(window);
@@ -766,13 +806,16 @@ Item {
     }
 
     function snapshotResizeGroup(client) {
-        if (client.zone === undefined || client.zone === -1 || client.layout === undefined || client.layout === -1)
+        let layout = validLayoutIndex(client.layout) ? client.layout : currentLayout;
+        if (recoverClientZone(client, layout, true) === -1) {
             matchZoneAnyLayout(client, currentLayout);
+            layout = validLayoutIndex(client.layout) ? client.layout : currentLayout;
+        }
 
-        const layout = client.layout !== undefined ? client.layout : currentLayout;
-        if (client.zone === undefined || client.zone === -1 || layout === undefined || layout === -1)
+        if (client.zone === undefined || client.zone === -1 || !validLayoutIndex(layout))
             return null;
 
+        layout = clampLayoutIndex(layout);
         const output = clientOutput(client);
         const desktop = Workspace.currentDesktop;
         const activity = Workspace.currentActivity;
@@ -1034,9 +1077,40 @@ Item {
         updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
     }
 
+    function disconnectSignals(client) {
+        const handlers = client && client.magnetileSignalHandlers;
+        if (!handlers)
+            return;
+
+        try {
+            if (handlers.started)
+                client.onInteractiveMoveResizeStarted.disconnect(handlers.started);
+            if (handlers.stepped)
+                client.onInteractiveMoveResizeStepped.disconnect(handlers.stepped);
+            if (handlers.finished)
+                client.onInteractiveMoveResizeFinished.disconnect(handlers.finished);
+            if (handlers.fullscreen)
+                client.onFullScreenChanged.disconnect(handlers.fullscreen);
+        } catch (error) {
+            Utils.log("Signal disconnect skipped: " + error);
+        }
+        client.magnetileSignalHandlers = null;
+        if (client.magnetileSignalToken === signalToken)
+            client.magnetileSignalToken = "";
+    }
+
     function connectSignals(client) {
+        if (!checkFilter(client))
+            return ;
+
+        disconnectSignals(client);
+        const connectedToken = signalToken;
+        function signalIsCurrent() {
+            return client && client.magnetileSignalToken === connectedToken;
+        }
+
         function onInteractiveMoveResizeStarted() {
-            if (!root || client.magnetileSignalToken !== root.signalToken)
+            if (!signalIsCurrent())
                 return;
 
             Utils.log("Interactive move/resize started for client " + client.resourceClass.toString());
@@ -1054,7 +1128,7 @@ Item {
                             client.opacity = 0.5;
                         }
                     }
-                    if (config.rememberWindowGeometries && client.zone != -1) {
+                    if (config.rememberWindowGeometries && validZoneIndex(client.layout, client.zone)) {
                         if (client.oldGeometry) {
                             const geometry = client.oldGeometry;
                             const zone = config.layouts[client.layout].zones[client.zone];
@@ -1089,7 +1163,7 @@ Item {
         }
 
         function onInteractiveMoveResizeStepped() {
-            if (!root || client.magnetileSignalToken !== root.signalToken)
+            if (!signalIsCurrent())
                 return;
 
             if (client.resizeable) {
@@ -1100,7 +1174,7 @@ Item {
         }
 
         function onInteractiveMoveResizeFinished() {
-            if (!root || client.magnetileSignalToken !== root.signalToken)
+            if (!signalIsCurrent())
                 return;
 
             Utils.log("Interactive move/resize finished for client " + client.resourceClass.toString());
@@ -1138,13 +1212,14 @@ Item {
 
         // fix from https://github.com/gerritdevriese/kzones/pull/25
         function onFullScreenChanged() {
-            if (!root || client.magnetileSignalToken !== root.signalToken)
+            if (!signalIsCurrent())
                 return;
 
             Utils.log("Client fullscreen: " + client.resourceClass.toString() + " (fullscreen " + client.fullScreen + ")");
             if (client.fullScreen == true) {
+                recoverClientZone(client, validLayoutIndex(client.layout) ? client.layout : currentLayout, true);
                 Utils.log("onFullscreenChanged: Client zone: " + client.zone + " layout: " + client.layout);
-                if (client.zone != -1 && client.layout != -1) {
+                if (validZoneIndex(client.layout, client.zone)) {
                     //check if fullscreen is enabled for layout or for zone
                     const layout = config.layouts[client.layout];
                     const zone = layout.zones[client.zone];
@@ -1160,11 +1235,14 @@ Item {
             mainDialog.hide();
         }
 
-        if (!checkFilter(client))
-            return ;
-
         Utils.log("Connecting signals for client " + client.resourceClass.toString());
-        client.magnetileSignalToken = root.signalToken;
+        client.magnetileSignalToken = connectedToken;
+        client.magnetileSignalHandlers = {
+            "started": onInteractiveMoveResizeStarted,
+            "stepped": onInteractiveMoveResizeStepped,
+            "finished": onInteractiveMoveResizeFinished,
+            "fullscreen": onFullScreenChanged
+        };
         client.onInteractiveMoveResizeStarted.connect(onInteractiveMoveResizeStarted);
         client.onInteractiveMoveResizeStepped.connect(onInteractiveMoveResizeStepped);
         client.onInteractiveMoveResizeFinished.connect(onInteractiveMoveResizeFinished);
@@ -1183,6 +1261,14 @@ Item {
             connectSignals(Workspace.stackingOrder[i]);
         }
         Utils.log("Everything loaded successfully");
+    }
+
+    Component.onDestruction: {
+        disposing = true;
+        for (let i = 0; i < Workspace.stackingOrder.length; i++)
+            disconnectSignals(Workspace.stackingOrder[i]);
+
+        Utils.log("Script disposed");
     }
 
     PlasmaCore.Dialog {
@@ -1385,16 +1471,24 @@ Item {
         }
         onMoveActiveWindowToNextZone: {
             const client = Workspace.activeWindow;
-            if (client.zone == -1)
-                moveClientToClosestZone(client);
+            if (!client || !checkFilter(client))
+                return;
+
+            refreshClientAreaForClient(client);
+            if (recoverClientZone(client, currentLayout, true) === -1)
+                return;
 
             const zonesLength = config.layouts[currentLayout].zones.length;
             moveClientToZone(client, (client.zone + 1) % zonesLength);
         }
         onMoveActiveWindowToPreviousZone: {
             const client = Workspace.activeWindow;
-            if (client.zone == -1)
-                moveClientToClosestZone(client);
+            if (!client || !checkFilter(client))
+                return;
+
+            refreshClientAreaForClient(client);
+            if (recoverClientZone(client, currentLayout, true) === -1)
+                return;
 
             const zonesLength = config.layouts[currentLayout].zones.length;
             moveClientToZone(client, (client.zone - 1 + zonesLength) % zonesLength);
@@ -1408,10 +1502,24 @@ Item {
                 Utils.osd("The overlay can only be shown while moving a window");
         }
         onSwitchToNextWindowInCurrentZone: {
-            switchWindowInZone(Workspace.activeWindow.zone, Workspace.activeWindow.layout);
+            const client = Workspace.activeWindow;
+            if (!client || !checkFilter(client))
+                return;
+
+            refreshClientAreaForClient(client);
+            const zone = recoverClientZone(client, currentLayout, true);
+            if (zone !== -1)
+                switchWindowInZone(zone, currentLayout);
         }
         onSwitchToPreviousWindowInCurrentZone: {
-            switchWindowInZone(Workspace.activeWindow.zone, Workspace.activeWindow.layout, true);
+            const client = Workspace.activeWindow;
+            if (!client || !checkFilter(client))
+                return;
+
+            refreshClientAreaForClient(client);
+            const zone = recoverClientZone(client, currentLayout, true);
+            if (zone !== -1)
+                switchWindowInZone(zone, currentLayout, true);
         }
         onMoveActiveWindowToZone: function(zone) {
             refreshClientAreaForClient(Workspace.activeWindow);
@@ -1489,12 +1597,18 @@ Item {
     // workspace connection
     Connections {
         function onCurrentDesktopChanged() {
+            if (disposing)
+                return;
+
             if (config.trackLayoutPerDesktop)
                 currentLayout = getCurrentLayout();
 
         }
 
         function onWindowAdded(client) {
+            if (disposing)
+                return;
+
             connectSignals(client);
             // check if client is in a zone application list
             config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {
@@ -1519,6 +1633,9 @@ Item {
     Connections {
         //! still not working, hopefully it will at some point 😐
         function onConfigChanged() {
+            if (disposing)
+                return;
+
             resizedZoneGeometries = new Object();
             Core.loadConfig();
             refreshClientArea();
