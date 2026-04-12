@@ -254,6 +254,13 @@ provide a matching key-release signal that can be used as a robust global
 
 ## Known Limitations
 
+- Critical next-session issue: KDE screenshot region selection appears offset
+  after recent Magnetile work. User reported `Meta+Shift+S` region capture
+  aimed at a middle window instead captured an area far to the left. Treat this
+  as the first bug to investigate next session. Do not work on screen recording
+  or demo media; focus only on whether Magnetile overlays/dialogs, output
+  geometry, or window frameGeometry changes are disturbing KWin/Spectacle
+  coordinate mapping.
 - Connected resize depends on KWin's interactive resize step events, so apps
   that throttle or reject scripted geometry updates may feel less fluid.
 - Overlapping zones and multi-zone spanning are not fully solved.
