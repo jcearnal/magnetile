@@ -1,6 +1,6 @@
 # Magnetile
 
-<img align="right" width="125" height="75" src="./media/icon.png">
+<img align="right" width="96" height="96" src="./media/icon.svg">
 
 KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
