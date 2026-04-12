@@ -254,14 +254,6 @@ provide a matching key-release signal that can be used as a robust global
 
 ## Known Limitations
 
-- Critical next-session issue: KDE screenshot region selection appears offset
-  after recent Magnetile work. User reported `Meta+Shift+S` region capture
-  aimed at a middle window instead captured an area far to the left. User also
-  reported screenshot click-drag selection only works in the center window zone
-  and not other zones. Treat this as the first bug to investigate next session.
-  Do not work on screen recording or demo media; focus only on whether Magnetile
-  overlays/dialogs, output geometry, or window frameGeometry changes are
-  disturbing KWin/Spectacle coordinate mapping.
 - Connected resize depends on KWin's interactive resize step events, so apps
   that throttle or reject scripted geometry updates may feel less fluid.
 - Overlapping zones and multi-zone spanning are not fully solved.
@@ -294,6 +286,14 @@ The full restart path packages and installs with `make`, enables Magnetile in
 expected to be necessary for KGlobalAccel shortcut declaration changes and for
 clearing old QML closures left by temporary development loads.
 
+The `Meta+Shift+S` screenshot-region bug from April 2026 was caused by
+`autoSnapAllNew` snapping KWin's Spectacle capture client
+(`org.kde.spectacle`) into Magnetile zones. Magnetile now treats Spectacle as a
+protected capture client and ignores it before signal connection, application
+rules, autosnap, or zone matching. If screenshot selection appears restricted
+to a zone again, enable debug logging and check for `Moving client
+org.kde.spectacle` or another capture client in KWin logs.
+
 The Makefile uses `zip` when available and Python's `zipfile` module as a fallback.
 
 Watch logs:
@@ -316,6 +316,9 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
   layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
+- Press `Meta+Shift+S` and drag screenshot regions across every active
+  Magnetile zone. The selector should cover the full output and captures should
+  not be offset.
 - Stack two windows in the same zone, then use `Ctrl+Alt+Up/Down` to cycle the
   active window through that zone's stack.
 - Use `tools/layout-editor.html` to import, edit, copy, and reapply layout JSON.

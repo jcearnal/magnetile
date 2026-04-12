@@ -599,6 +599,17 @@ after monitor, desktop, activity, or scaling changes.
 4. Press `Ctrl+Alt+F` again; the OSD should say **Free movement disabled**.
 5. Drag the window again. Magnetile snapping should be available again.
 
+## Testing Screenshot Region Selection
+
+Magnetile ignores KDE Spectacle capture windows so `Meta+Shift+S` can select
+regions across the full output even when `Automatically snap all new windows`
+is enabled.
+
+1. Press `Meta+Shift+S`.
+2. Drag a region across each active Magnetile zone.
+3. Confirm the selector is not limited to a zone and the saved capture is not
+   offset from the selected region.
+
 ## Tips and Tricks
 
 ### Animate window movements
