@@ -35,9 +35,11 @@ require_cmd() {
 
 record_gif() {
     local mode="$1"
-    local raw="$MEDIA_DIR/${mode}.mp4"
-    local palette="$MEDIA_DIR/${mode}-palette.png"
+    local raw="$MEDIA_DIR/.${mode}.recording.mp4"
+    local palette="$MEDIA_DIR/.${mode}.palette.png"
+    local tmp_gif="$MEDIA_DIR/.${mode}.gif"
     local gif="$MEDIA_DIR/${mode}.gif"
+    local log="$MEDIA_DIR/.${mode}.wf-recorder.log"
     local region
     local recorder_pid
 
@@ -51,12 +53,25 @@ record_gif() {
     region="$(slurp)"
 
     printf 'Recording %s. Press Enter here when the demo is complete.\n' "$raw"
-    rm -f "$raw" "$palette" "$gif"
-    wf-recorder -g "$region" -f "$raw" &
+    rm -f "$raw" "$palette" "$tmp_gif" "$log"
+    wf-recorder -g "$region" -f "$raw" 2>"$log" &
     recorder_pid="$!"
+    sleep 0.5
+    if ! kill -0 "$recorder_pid" 2>/dev/null; then
+        printf 'wf-recorder failed to start.\n' >&2
+        cat "$log" >&2
+        exit 1
+    fi
     read -r
     kill -INT "$recorder_pid" 2>/dev/null || true
     wait "$recorder_pid" 2>/dev/null || true
+
+    if [ ! -s "$raw" ]; then
+        printf 'wf-recorder did not create %s.\n' "$raw" >&2
+        printf 'Recorder log:\n' >&2
+        cat "$log" >&2
+        exit 1
+    fi
 
     printf 'Optimizing %s...\n' "$gif"
     ffmpeg -y -i "$raw" \
@@ -64,14 +79,17 @@ record_gif() {
         "$palette"
     ffmpeg -y -i "$raw" -i "$palette" \
         -lavfi "fps=${FPS},scale='min(${MAX_WIDTH},iw)':-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
-        -loop 0 "$gif"
-    rm -f "$palette" "$raw"
+        -loop 0 "$tmp_gif"
+    mv "$tmp_gif" "$gif"
+    rm -f "$palette" "$raw" "$log"
     printf 'Wrote %s\n' "$gif"
 }
 
 capture_theming() {
-    local raw="$MEDIA_DIR/theming.mp4"
+    local raw="$MEDIA_DIR/.theming.recording.mp4"
+    local tmp_png="$MEDIA_DIR/.theming.png"
     local png="$MEDIA_DIR/theming.png"
+    local log="$MEDIA_DIR/.theming.wf-recorder.log"
     local region
     local recorder_pid
 
@@ -84,14 +102,29 @@ capture_theming() {
     printf 'Select the static theming screenshot region with slurp.\n'
     region="$(slurp)"
     printf 'Recording a short theming clip. Press Enter here once the overlay is visible.\n'
-    rm -f "$raw" "$png"
-    wf-recorder -g "$region" -f "$raw" &
+    rm -f "$raw" "$tmp_png" "$log"
+    wf-recorder -g "$region" -f "$raw" 2>"$log" &
     recorder_pid="$!"
+    sleep 0.5
+    if ! kill -0 "$recorder_pid" 2>/dev/null; then
+        printf 'wf-recorder failed to start.\n' >&2
+        cat "$log" >&2
+        exit 1
+    fi
     read -r
     kill -INT "$recorder_pid" 2>/dev/null || true
     wait "$recorder_pid" 2>/dev/null || true
-    ffmpeg -y -sseof -0.1 -i "$raw" -frames:v 1 "$png"
-    rm -f "$raw"
+
+    if [ ! -s "$raw" ]; then
+        printf 'wf-recorder did not create %s.\n' "$raw" >&2
+        printf 'Recorder log:\n' >&2
+        cat "$log" >&2
+        exit 1
+    fi
+
+    ffmpeg -y -sseof -0.1 -i "$raw" -frames:v 1 "$tmp_png"
+    mv "$tmp_png" "$png"
+    rm -f "$raw" "$log"
     printf 'Wrote %s\n' "$png"
 }
 
