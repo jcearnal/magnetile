@@ -43,7 +43,7 @@ users have a familiar workflow.
 
 ### New In Magnetile
 
-Compared with the original KZones base, Magnetile adds or is developing:
+Compared with the original KZones base, Magnetile adds:
 
 - Connected resizing: adjacent tiled windows resize after a manual edge resize,
   and later snaps can follow the resized runtime grid.
@@ -63,6 +63,23 @@ Compared with the original KZones base, Magnetile adds or is developing:
   and known KWin scripted-config limitations.
 
 ## Features
+
+### Connected Resizing
+
+Connected resizing is Magnetile's headline feature. Resize a snapped window
+with the mouse and adjacent snapped windows on the same output, virtual
+desktop, activity, and layout resize with it so the tile group stays connected.
+Future snaps on that output use the adjusted runtime grid until the script
+reloads or the configuration changes.
+
+![](./media/connected-resize.gif)
+
+Recorded on 5120x1440.
+
+### KZones-Inherited Workflow
+
+Magnetile keeps the familiar zone selector, drag overlay, edge snapping,
+multiple layouts, shortcuts, and Plasma-aware theming from its KZones base.
 
 ### Zone Selector
 
@@ -100,15 +117,6 @@ Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
 
 ![](./media/shortcuts.gif)
-
-### Connected Resizing
-
-When you resize a tiled window with the mouse, Magnetile checks nearby tiled
-windows on the same output, virtual desktop, activity, and layout. Windows that
-shared the moved edge are resized after mouse release so the group stays
-connected. Magnetile also keeps a runtime version of the resized grid so future
-snaps on that output follow the adjusted zone sizes until the script reloads or
-the configuration changes.
 
 ### Free Movement
 
