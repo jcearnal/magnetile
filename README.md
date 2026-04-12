@@ -458,16 +458,24 @@ each physical output. Magnetile keys this by KWin output name, so monitor
 arrangements can be left, right, above, below, or use negative virtual
 coordinates.
 
-Use **Monitor layout defaults** to seed a specific output with a layout. The
-value is a JSON object whose keys are KWin output names and whose values are
-layout names or zero-based layout indexes:
+Use **Monitor layout defaults** to seed a specific output or orientation with a
+layout. The value is a JSON object whose keys are KWin output names,
+`landscape`, or `portrait`, and whose values are layout names or zero-based
+layout indexes:
 
 ```json
 {
     "DP-1": "Priority Grid",
-    "HDMI-A-1": 1
+    "HDMI-A-1": 1,
+    "landscape": "Priority Grid",
+    "portrait": "Horizontal Split"
 }
 ```
+
+If no valid output or orientation default is set, Magnetile uses `Priority Grid`
+on landscape outputs and `Horizontal Split` on portrait outputs when those
+layouts exist. Orientation is part of the runtime per-screen key, so rotating a
+monitor seeds a separate active layout for that orientation.
 
 After a monitor has an active layout, layout switching on that monitor updates
 only that monitor's runtime selection. If **Track active layout per virtual

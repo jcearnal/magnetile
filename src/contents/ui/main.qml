@@ -59,14 +59,9 @@ Item {
         return -1;
     }
 
-    function configuredLayoutForOutput(screen) {
-        const name = outputName(screen);
-        if (!name || !config.monitorLayouts)
-            return 0;
-
-        const assigned = config.monitorLayouts[name];
+    function layoutIndexFromAssignment(assigned) {
         if (assigned === undefined || assigned === null || assigned === "")
-            return 0;
+            return -1;
 
         if (typeof assigned === "number")
             return clampLayoutIndex(assigned);
@@ -81,7 +76,37 @@ Item {
                 return clampLayoutIndex(byIndex);
 
         }
+        return -1;
+    }
+
+    function outputOrientation(screen) {
+        const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
+        return area.height > area.width ? "portrait" : "landscape";
+    }
+
+    function orientationDefaultLayout(screen) {
+        const orientation = outputOrientation(screen);
+        const preferred = orientation === "portrait" ? "Horizontal Split" : "Priority Grid";
+        const preferredIndex = layoutIndexByName(preferred);
+        if (preferredIndex !== -1)
+            return preferredIndex;
+
         return 0;
+    }
+
+    function configuredLayoutForOutput(screen) {
+        const name = outputName(screen);
+        const orientation = outputOrientation(screen);
+        const defaults = config.monitorLayouts || {};
+        const outputLayout = layoutIndexFromAssignment(name ? defaults[name] : undefined);
+        if (outputLayout !== -1)
+            return outputLayout;
+
+        const orientationLayout = layoutIndexFromAssignment(defaults[orientation] !== undefined ? defaults[orientation] : defaults["__" + orientation]);
+        if (orientationLayout !== -1)
+            return orientationLayout;
+
+        return orientationDefaultLayout(screen);
     }
 
     function clientDesktops(client) {
@@ -638,8 +663,10 @@ Item {
 
     function getLayoutKey() {
         const parts = [];
-        if (config.trackLayoutPerScreen)
+        if (config.trackLayoutPerScreen) {
             parts.push(outputName(activeScreen || Workspace.activeScreen));
+            parts.push(outputOrientation(activeScreen || Workspace.activeScreen));
+        }
 
         if (config.trackLayoutPerDesktop)
             parts.push(Workspace.currentDesktop.id);
@@ -1240,32 +1267,32 @@ Item {
                             const halfPadding = padding / 2;
                             config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {
                                 const geometry = zoneGeometry(currentLayout, zoneIndex, activeScreen);
-                                let zoneGeometry = {
+                                let expandedZoneGeometry = {
                                     "x": geometry.x - padding / 2,
                                     "y": geometry.y - padding / 2,
                                     "width": geometry.width + padding,
                                     "height": geometry.height + padding
                                 };
                                 //adjust most left edge
-                                if (zoneGeometry.x <= clientArea.x + halfPadding) {
-                                    zoneGeometry.x = clientArea.x;
-                                    zoneGeometry.width += padding;
+                                if (expandedZoneGeometry.x <= clientArea.x + halfPadding) {
+                                    expandedZoneGeometry.x = clientArea.x;
+                                    expandedZoneGeometry.width += padding;
                                 }
                                 //adjust most top edge
-                                if (zoneGeometry.y <= clientArea.y + halfPadding) {
-                                    zoneGeometry.y = clientArea.y;
-                                    zoneGeometry.height += padding;
+                                if (expandedZoneGeometry.y <= clientArea.y + halfPadding) {
+                                    expandedZoneGeometry.y = clientArea.y;
+                                    expandedZoneGeometry.height += padding;
                                 }
                                 //adjust most right edge
-                                if (zoneGeometry.x + zoneGeometry.width >= clientArea.x + clientArea.width - halfPadding)
-                                    zoneGeometry.width += halfPadding;
+                                if (expandedZoneGeometry.x + expandedZoneGeometry.width >= clientArea.x + clientArea.width - halfPadding)
+                                    expandedZoneGeometry.width += halfPadding;
 
                                 //adjust most bottom edge
-                                if (zoneGeometry.y + zoneGeometry.height >= clientArea.y + clientArea.height - halfPadding)
-                                    zoneGeometry.height += halfPadding;
+                                if (expandedZoneGeometry.y + expandedZoneGeometry.height >= clientArea.y + clientArea.height - halfPadding)
+                                    expandedZoneGeometry.height += halfPadding;
 
                                 // check if cursor is inside the zone geometry
-                                if (Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, zoneGeometry))
+                                if (Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, expandedZoneGeometry))
                                     hoveringZone = zoneIndex;
 
                             });
