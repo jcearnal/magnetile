@@ -94,7 +94,7 @@ to put the window back under Magnetile control.
 Each KWin output can seed its own default layout. Runtime layout switching can
 be tracked independently per monitor, and optionally per virtual desktop.
 
-![](./media/multi-monitor.png)
+![](./media/multi-monitor-transparent.png)
 
 #### Visual Layout Helper
 
