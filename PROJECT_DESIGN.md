@@ -83,26 +83,32 @@ arrays valid and make new fields optional.
 
 ## Per-Monitor Layout Defaults
 
-`monitorLayoutsJson` is an optional JSON object mapping KWin output names to a
-layout name or zero-based layout index:
+`monitorLayoutsJson` is an optional JSON object mapping KWin output names,
+`landscape`, or `portrait` to a layout name or zero-based layout index:
 
 ```json
 {
   "DP-1": "Priority Grid",
-  "HDMI-A-1": 1
+  "HDMI-A-1": 1,
+  "landscape": "Priority Grid",
+  "portrait": "Horizontal Split"
 }
 ```
 
 This map is only used when `trackLayoutPerScreen` is enabled. On first use of an
 output/desktop layout key, Magnetile seeds the active layout from
-`monitorLayoutsJson`; after that, runtime layout switching is tracked
+`monitorLayoutsJson`; output-name defaults take precedence over orientation
+defaults. If no valid mapping exists, landscape outputs prefer `Priority Grid`
+and portrait outputs prefer `Horizontal Split` when those layouts exist. After
+seeding, runtime layout switching is tracked
 independently in memory for that output, and optionally for that virtual desktop
 when `trackLayoutPerDesktop` is also enabled.
 
 Monitor identity uses KWin output names (`output.name`). Geometry does not rely
 on output order or an origin of `x=0, y=0`; snapping uses
 `Workspace.clientArea(KWin.FullScreenArea, output, desktop)` plus percentage
-zones.
+zones. Output orientation is included in the runtime layout key so rotating a
+monitor seeds and remembers a separate layout selection for that orientation.
 
 ## Zone Geometry
 
@@ -170,6 +176,10 @@ Flow:
 8. Stacked or side-by-side sibling zones that share the same logical outer edge
    follow that edge together, so accidentally grabbing one half of a split stack
    still keeps the other half aligned.
+9. `Ctrl+Alt+R` clears the current layout's resized runtime geometry for the
+   active output, desktop, and activity, then moves windows in that layout back
+   to their configured zone geometry. If a window's dynamic layout/zone state is
+   stale, reset falls back to the nearest configured zone.
 
 Scope rules:
 
@@ -187,6 +197,8 @@ Current default shortcuts avoid numpad dependency:
 
 - `Ctrl+Alt+1..9`: move active window to zone 1-9.
 - `Ctrl+Alt+Shift+1..9`: activate layout 1-9.
+- `Ctrl+Alt+!/@/#...`: compatibility aliases for activate layout 1-9 on
+  keyboard paths that report shifted number keys as symbols.
 - `Ctrl+Alt+D`: cycle layouts.
 - `Ctrl+Alt+Shift+D`: cycle layouts reversed.
 - `Ctrl+Alt+Left/Right`: previous/next zone.
@@ -195,8 +207,12 @@ Current default shortcuts avoid numpad dependency:
 - `Meta+Shift+Space`: snap active window.
 - `Ctrl+Alt+F`: free active window from Magnetile drag snapping.
 - `Ctrl+Alt+C`: toggle zone overlay while moving.
+- `Ctrl+Alt+R`: reset windows in the current layout back to configured zone
+  geometry.
 
 KDE keeps old bindings in `~/.config/kglobalshortcutsrc`. If shortcut defaults change, existing installs may need live KGlobalAccel updates or manual changes in System Settings.
+Shortcut declaration changes and old dev-loaded signal handlers may require a
+full KWin restart with `qdbus6 org.kde.KWin /KWin org.kde.KWin.replace`.
 
 ## Free Movement
 
@@ -224,6 +240,9 @@ provide a matching key-release signal that can be used as a robust global
 - Multiple windows stacked in one zone can make resize behavior ambiguous.
 - Some GTK/Flatpak apps may fight requested geometry.
 - KWin script config reload is unreliable; disabling/enabling or restarting KWin scripting may be needed after config changes.
+- `wf-recorder` is not a valid capture backend on KWin sessions that do not
+  expose `wlr-screencopy-unstable-v1`; recording tooling needs a KDE
+  PipeWire/portal-compatible backend before final demo capture.
 
 ## Local Development
 
@@ -256,10 +275,13 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 - Install and enable the script.
 - Confirm KWin logs show `Magnetile: Loading config`.
 - Move a window to zones 1, 2, and 3 with `Ctrl+Alt+1..3`.
-- Switch layouts with `Ctrl+Alt+Shift+1..2`.
+- Switch layouts with `Ctrl+Alt+Shift+1..3` and confirm the numbered OSD shows
+  the selected layout name.
 - Drag a window to the top selector and drop into a zone.
 - Move a window while overlay is visible.
 - Put three windows into adjacent zones and resize the center window by mouse.
+- Press `Ctrl+Alt+R` and confirm resized windows return to the configured
+  layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
 - Use `tools/layout-editor.html` to import, edit, copy, and reapply layout JSON.
@@ -268,11 +290,9 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 
 ## Feature Ideas Already Requested
 
-- Hotkey to restore all windows on the current output to the original layout
-  size and position.
 - Better native KWin tile API integration.
 - Multi-zone spanning.
 - GUI layout editor.
-- More robust multi-monitor default layout selection.
 - Continuous live connected resizing while the mouse is moving.
 - Better handling for overlapping zones.
+- KDE PipeWire/portal-compatible recording workflow for demo media.
