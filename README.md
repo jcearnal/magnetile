@@ -553,8 +553,10 @@ List of all available shortcuts:
    should return to the configured layout geometry.
 
 Enable debug logging or the debug overlay when a nearby window does not follow
-a resize. Magnetile reports the active resize group, participating windows, and
-windows skipped because they were filtered or outside the current scope.
+a resize. These are independent toggles: logging writes the resize group to
+KWin logs, while the overlay shows the same resize summary while dragging.
+Magnetile reports the active resize group, participating windows, and windows
+skipped because they were filtered or outside the current scope.
 
 ## Testing Free Movement
 

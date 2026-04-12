@@ -142,6 +142,30 @@ Item {
         return "<window>";
     }
 
+    function debugInfo() {
+        return {
+            "activeWindow": {
+                "caption": Workspace.activeWindow && Workspace.activeWindow.caption,
+                "resourceClass": Workspace.activeWindow && Workspace.activeWindow.resourceClass && Workspace.activeWindow.resourceClass.toString(),
+                "frameGeometry": {
+                    "x": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.x,
+                    "y": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.y,
+                    "width": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.width,
+                    "height": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.height
+                },
+                "zone": Workspace.activeWindow && Workspace.activeWindow.zone
+            },
+            "highlightedZone": highlightedZone,
+            "moving": moving,
+            "resizing": resizing,
+            "oldGeometry": Workspace.activeWindow && Workspace.activeWindow.oldGeometry,
+            "activeScreen": activeScreen && activeScreen.name,
+            "currentLayout": currentLayout,
+            "screenLayouts": screenLayouts,
+            "resize": resizeDebugInfo
+        };
+    }
+
     function validLayoutIndex(layout) {
         const index = Number(layout);
         return config.layouts && isFinite(index) && index >= 0 && index < config.layouts.length;
@@ -1335,6 +1359,32 @@ Item {
     }
 
     PlasmaCore.Dialog {
+        id: debugDialog
+
+        title: "Magnetile Debug"
+        location: PlasmaCore.Types.Desktop
+        type: PlasmaCore.Dialog.OnScreenDisplay
+        backgroundHints: PlasmaCore.Types.NoBackground
+        flags: Qt.BypassWindowManagerHint | Qt.FramelessWindowHint | Qt.Popup
+        hideOnWindowDeactivate: false
+        visible: config.enableDebugOverlay && resizing
+        outputOnly: true
+        opacity: 1
+        width: displaySize.width
+        height: displaySize.height
+
+        Item {
+            width: debugDialog.width
+            height: debugDialog.height
+
+            Components.Debug {
+                info: debugInfo()
+                config: root.config
+            }
+        }
+    }
+
+    PlasmaCore.Dialog {
         id: mainDialog
 
         function show() {
@@ -1467,27 +1517,7 @@ Item {
                 clip: true
 
                 Components.Debug {
-                    info: ({
-                        "activeWindow": {
-                            "caption": Workspace.activeWindow && Workspace.activeWindow.caption,
-                            "resourceClass": Workspace.activeWindow && Workspace.activeWindow.resourceClass && Workspace.activeWindow.resourceClass.toString(),
-                            "frameGeometry": {
-                                "x": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.x,
-                                "y": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.y,
-                                "width": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.width,
-                                "height": Workspace.activeWindow && Workspace.activeWindow.frameGeometry && Workspace.activeWindow.frameGeometry.height
-                            },
-                            "zone": Workspace.activeWindow && Workspace.activeWindow.zone
-                        },
-                        "highlightedZone": highlightedZone,
-                        "moving": moving,
-                        "resizing": resizing,
-                        "oldGeometry": Workspace.activeWindow && Workspace.activeWindow.oldGeometry,
-                        "activeScreen": activeScreen && activeScreen.name,
-                        "currentLayout": currentLayout,
-                        "screenLayouts": screenLayouts,
-                        "resize": resizeDebugInfo
-                    })
+                    info: debugInfo()
                     config: root.config
                 }
 
