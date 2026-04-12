@@ -552,6 +552,10 @@ List of all available shortcuts:
 9. Press `Ctrl+Alt+R`. Windows in the current layout on the active output
    should return to the configured layout geometry.
 
+Enable debug logging or the debug overlay when a nearby window does not follow
+a resize. Magnetile reports the active resize group, participating windows, and
+windows skipped because they were filtered or outside the current scope.
+
 ## Testing Free Movement
 
 1. Move a window into a zone.

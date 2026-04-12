@@ -21,6 +21,7 @@ Item {
     property int currentLayout: 0
     property var screenLayouts: new Object()
     property var resizedZoneGeometries: new Object()
+    property var resizeDebugInfo: new Object()
     property int highlightedZone: -1
     property var activeScreen: null
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
@@ -126,6 +127,19 @@ Item {
 
     function clientActivity(client) {
         return client && client.activity !== undefined ? client.activity : Workspace.currentActivity;
+    }
+
+    function clientDebugName(client) {
+        if (!client)
+            return "<none>";
+
+        if (client.resourceClass)
+            return client.resourceClass.toString();
+
+        if (client.caption)
+            return client.caption.toString();
+
+        return "<window>";
     }
 
     function validLayoutIndex(layout) {
@@ -785,23 +799,41 @@ Item {
 
     function tiledClientsForResize(client, layout, output, desktop, activity) {
         const clients = [];
+        const skipped = [];
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
             const window = Workspace.stackingOrder[i];
-            if (!checkFilter(window))
+            if (!checkFilter(window)) {
+                skipped.push(clientDebugName(window) + ": filtered");
                 continue;
+            }
 
             if (window === client)
                 continue;
 
-            if (clientOutput(window) !== output || !sameDesktop(window, desktop) || clientActivity(window) !== activity)
+            if (clientOutput(window) !== output) {
+                skipped.push(clientDebugName(window) + ": different output");
                 continue;
+            }
+
+            if (!sameDesktop(window, desktop)) {
+                skipped.push(clientDebugName(window) + ": different desktop");
+                continue;
+            }
+
+            if (clientActivity(window) !== activity) {
+                skipped.push(clientDebugName(window) + ": different activity");
+                continue;
+            }
 
             recoverClientZone(window, layout, true);
-            if (window.zone === undefined || window.zone === -1 || window.layout !== layout)
+            if (window.zone === undefined || window.zone === -1 || window.layout !== layout) {
+                skipped.push(clientDebugName(window) + ": no layout zone");
                 continue;
+            }
 
             clients.push(window);
         }
+        resizeDebugInfo.skipped = skipped;
         return clients;
     }
 
@@ -832,6 +864,25 @@ Item {
                 "logicalGeometry": zoneGeometry(layout, window.zone, output)
             });
         }
+
+        const participantNames = snapshots.map(item => clientDebugName(item.client) + " z" + (item.zone + 1));
+        resizeDebugInfo = {
+            "active": true,
+            "client": clientDebugName(client),
+            "layout": layout,
+            "zone": client.zone,
+            "output": outputName(output),
+            "desktop": desktop && desktop.name ? desktop.name : "",
+            "activity": activity || "",
+            "participants": participantNames,
+            "participantCount": snapshots.length,
+            "skipped": resizeDebugInfo.skipped || [],
+            "appliedCount": 0,
+            "lastApplied": false
+        };
+        Utils.log("Resize group: " + resizeDebugInfo.client + " layout " + (layout + 1) + " zone " + (client.zone + 1) + " on " + (resizeDebugInfo.output || "<output>") + "; participants: " + (participantNames.length ? participantNames.join(", ") : "none"));
+        if (resizeDebugInfo.skipped.length > 0)
+            Utils.log("Resize skipped: " + resizeDebugInfo.skipped.join("; "));
 
         return {
             "zone": client.zone,
@@ -994,6 +1045,7 @@ Item {
                 client.setMaximize(false, false);
                 client.frameGeometry = Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height);
                 applied = true;
+                resizeDebugInfo.appliedCount = (resizeDebugInfo.appliedCount || 0) + 1;
             }
         }
 
@@ -1069,6 +1121,7 @@ Item {
             window.desktop = snapshot.desktop;
             window.activity = snapshot.activity;
             applied = true;
+            resizeDebugInfo.appliedCount = (resizeDebugInfo.appliedCount || 0) + 1;
         }
 
         client.zone = snapshot.zone;
@@ -1076,6 +1129,8 @@ Item {
         client.desktop = snapshot.desktop;
         client.activity = snapshot.activity;
         updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
+        resizeDebugInfo.lastApplied = applied;
+        resizeDebugInfo = Object.assign({}, resizeDebugInfo);
         return applied;
     }
 
@@ -1155,6 +1210,7 @@ Item {
                     if (client.zone === undefined || client.zone === -1)
                         matchZone(client);
 
+                    resizeDebugInfo = new Object();
                     client.magnetileResizeSnapshot = snapshotResizeGroup(client);
                     moving = false;
                     moved = false;
@@ -1208,6 +1264,8 @@ Item {
 
                 Utils.log("Resizing end: Connected resize for client " + client.resourceClass.toString() + " at layout.zone " + client.layout + " " + client.zone);
                 client.magnetileResizeSnapshot = null;
+                resizeDebugInfo.active = false;
+                resizeDebugInfo = Object.assign({}, resizeDebugInfo);
             }
             moving = false;
             moved = false;
@@ -1427,7 +1485,8 @@ Item {
                         "oldGeometry": Workspace.activeWindow && Workspace.activeWindow.oldGeometry,
                         "activeScreen": activeScreen && activeScreen.name,
                         "currentLayout": currentLayout,
-                        "screenLayouts": screenLayouts
+                        "screenLayouts": screenLayouts,
+                        "resize": resizeDebugInfo
                     })
                     config: root.config
                 }

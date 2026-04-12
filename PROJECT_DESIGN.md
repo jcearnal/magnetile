@@ -193,6 +193,11 @@ Scope rules:
 - Only same activity.
 - Only same Magnetile layout.
 
+When `enableDebugLogging` is enabled, resize start logs include the active
+layout/zone, resize participants, and same-session windows skipped because they
+were filtered or outside the resize scope. The debug overlay also includes the
+current resize snapshot summary.
+
 The implementation is edge-adjacent, not a full tile-tree solver. It works best for non-overlapping grids and shared-edge layouts.
 
 ## Shortcuts
