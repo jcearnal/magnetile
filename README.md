@@ -6,7 +6,7 @@
 
 KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
 
-[![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/aur/version/kwin-scripts-magnetile?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile)
+[![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/badge/AUR-kwin--scripts--magnetile-1793D1?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile)
 
 Magnetile is a GPL-3.0 derivative of KZones. It keeps the core FancyZones-style
 zone workflow that made KZones useful, then extends it for a Wayland-only KDE
