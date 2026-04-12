@@ -18,6 +18,7 @@ Item {
     signal snapActiveWindow()
     signal snapAllWindows()
     signal freeActiveWindow()
+    signal resetCurrentLayout()
 
     ShortcutHandler {
         name: "Magnetile: Cycle layouts"
@@ -176,6 +177,15 @@ Item {
         sequence: "Ctrl+Alt+F"
         onActivated: {
             freeActiveWindow();
+        }
+    }
+
+    ShortcutHandler {
+        name: "Magnetile: Reset current layout"
+        text: "Magnetile: Reset current layout"
+        sequence: "Ctrl+Alt+R"
+        onActivated: {
+            resetCurrentLayout();
         }
     }
 

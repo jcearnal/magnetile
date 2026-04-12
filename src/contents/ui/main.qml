@@ -207,6 +207,47 @@ Item {
 
     }
 
+    function resetCurrentLayoutGeometry() {
+        const referenceClient = Workspace.activeWindow;
+        if (referenceClient)
+            refreshClientAreaForClient(referenceClient);
+        else
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+
+        const output = referenceClient ? clientOutput(referenceClient) : activeScreen || Workspace.activeScreen;
+        const desktop = Workspace.currentDesktop;
+        const activity = Workspace.currentActivity;
+        const layout = currentLayout;
+        let count = 0;
+
+        clearRuntimeLayoutGeometry(layout, output, desktop, activity);
+        for (let i = 0; i < Workspace.stackingOrder.length; i++) {
+            const client = Workspace.stackingOrder[i];
+            if (!checkFilter(client) || client.minimized)
+                continue;
+
+            if (clientOutput(client) !== output || !sameDesktop(client, desktop) || clientActivity(client) !== activity)
+                continue;
+
+            if (client.layout !== layout || client.zone === undefined || client.zone === -1)
+                continue;
+
+            if (client.zone < 0 || client.zone >= config.layouts[layout].zones.length)
+                continue;
+
+            client.setMaximize(false, false);
+            client.frameGeometry = zoneGeometry(layout, client.zone, output);
+            client.desktop = desktop;
+            client.activity = activity;
+            client.magnetileFreeMove = false;
+            client.magnetileResizeSnapshot = null;
+            count++;
+        }
+
+        resizedZoneGeometries = Object.assign({}, resizedZoneGeometries);
+        Utils.osd(count > 0 ? `Reset ${count} window${count === 1 ? "" : "s"} to ${config.layouts[layout].name}` : `Reset ${config.layouts[layout].name}`);
+    }
+
     function snapshotZoneGeometries(layoutIndex, screen) {
         const zones = config.layouts[clampLayoutIndex(layoutIndex)].zones;
         const geometries = [];
@@ -1356,6 +1397,9 @@ Item {
                     mainDialog.show();
             }
             Utils.osd(enabled ? "Free movement enabled" : "Free movement disabled");
+        }
+        onResetCurrentLayout: {
+            resetCurrentLayoutGeometry();
         }
     }
 

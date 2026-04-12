@@ -512,6 +512,7 @@ List of all available shortcuts:
 | Toggle zone overlay                                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>                     |
 | Activate layout                                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1-9</kbd> |
 | Free active window                                 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>                     |
+| Reset current layout                               | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd>                     |
 | Move active window up                              | <kbd>Meta</kbd> + <kbd>Up</kbd>                                     |
 | Move active window down                            | <kbd>Meta</kbd> + <kbd>Down</kbd>                                   |
 | Move active window left                            | <kbd>Meta</kbd> + <kbd>Left</kbd>                                   |
@@ -537,6 +538,8 @@ List of all available shortcuts:
    split sibling should keep the same outer edge aligned.
 8. Snap another window into one of the resized zones. It should use the current
    resized grid, not the original JSON layout dimensions.
+9. Press `Ctrl+Alt+R`. Windows in the current layout on the active output
+   should return to the configured layout geometry.
 
 ## Testing Free Movement
 
