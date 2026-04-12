@@ -167,6 +167,15 @@ Item {
         return caption || resourceClass || "<window>";
     }
 
+    function clientResourceClass(client) {
+        return client && client.resourceClass ? client.resourceClass.toString() : "";
+    }
+
+    function isProtectedCaptureClient(client) {
+        const resourceClass = clientResourceClass(client);
+        return resourceClass === "org.kde.spectacle" || resourceClass === "spectacle";
+    }
+
     function debugInfo() {
         return {
             "activeWindow": {
@@ -842,6 +851,9 @@ Item {
         if (!client)
             return false;
 
+        if (isProtectedCaptureClient(client))
+            return false;
+
         if (!client.normalWindow)
             return false;
 
@@ -855,10 +867,10 @@ Item {
         const filter = config.filterList.split(/\r?\n/);
         if (config.filterList.length > 0) {
             if (config.filterMode == 0)
-                return filter.includes(client.resourceClass.toString());
+                return filter.includes(clientResourceClass(client));
 
             if (config.filterMode == 1)
-                return !filter.includes(client.resourceClass.toString());
+                return !filter.includes(clientResourceClass(client));
 
         }
         return true;
@@ -1769,10 +1781,16 @@ Item {
             if (disposing)
                 return;
 
+            if (isProtectedCaptureClient(client)) {
+                Utils.log("Ignoring protected capture client " + clientResourceClass(client));
+                return;
+            }
+
             connectSignals(client);
             // check if client is in a zone application list
+            const resourceClass = clientResourceClass(client);
             config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {
-                if (zone.applications && zone.applications.includes(client.resourceClass.toString())) {
+                if (zone.applications && zone.applications.includes(resourceClass)) {
                     moveClientToZone(client, zoneIndex);
                     return ;
                 }
