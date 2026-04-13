@@ -175,8 +175,8 @@ main {
 
 .brand img {
   flex: 0 0 auto;
-  width: 96px;
-  height: 96px;
+  width: 128px;
+  height: 128px;
   border-radius: 8px;
   object-fit: cover;
 }
@@ -457,8 +457,8 @@ main {
   }
 
   .brand img {
-    width: 64px;
-    height: 64px;
+    width: 82px;
+    height: 82px;
   }
 
   .editor-grid {
