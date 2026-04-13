@@ -175,8 +175,10 @@ main {
 
 .brand img {
   flex: 0 0 auto;
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .eyebrow {
@@ -455,8 +457,8 @@ main {
   }
 
   .brand img {
-    width: 52px;
-    height: 52px;
+    width: 64px;
+    height: 64px;
   }
 
   .editor-grid {
