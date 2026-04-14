@@ -393,6 +393,7 @@ Item {
             client.desktop = desktop;
             client.activity = activity;
             client.magnetileFreeMove = false;
+            client.magnetileTiled = true;
             client.magnetileResizeSnapshot = null;
             count++;
         }
@@ -442,6 +443,10 @@ Item {
         if (stored)
             return stored;
 
+        return configuredZoneGeometry(layoutIndex, zoneIndex, screen);
+    }
+
+    function configuredZoneGeometry(layoutIndex, zoneIndex, screen) {
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
         const zonePadding = layout.padding || 0;
@@ -468,6 +473,35 @@ Item {
                 client.layout = layoutIndex;
                 client.desktop = Workspace.currentDesktop;
                 client.activity = Workspace.currentActivity;
+                client.magnetileTiled = true;
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function matchResizeZoneInLayout(client, layout) {
+        if (!checkFilter(client))
+            return -1;
+
+        const layoutIndex = clampLayoutIndex(layout);
+        const output = clientOutput(client);
+        if (client.magnetileTiled === true && validZoneIndex(layoutIndex, client.zone) && client.layout === layoutIndex) {
+            const geometry = zoneGeometry(layoutIndex, client.zone, output);
+            if (rectsClose(client.frameGeometry, geometry))
+                return client.zone;
+
+        }
+
+        const zones = config.layouts[layoutIndex].zones;
+        for (let i = 0; i < zones.length; i++) {
+            const geometry = configuredZoneGeometry(layoutIndex, i, output);
+            if (rectsClose(client.frameGeometry, geometry)) {
+                client.zone = i;
+                client.layout = layoutIndex;
+                client.desktop = Workspace.currentDesktop;
+                client.activity = Workspace.currentActivity;
+                client.magnetileTiled = true;
                 return i;
             }
         }
@@ -578,6 +612,7 @@ Item {
         client.desktop = Workspace.currentDesktop;
         client.activity = Workspace.currentActivity;
         client.magnetileFreeMove = true;
+        client.magnetileTiled = false;
         client.magnetileResizeSnapshot = null;
     }
 
@@ -615,6 +650,7 @@ Item {
         client.layout = currentLayout;
         client.desktop = Workspace.currentDesktop;
         client.activity = Workspace.currentActivity;
+        client.magnetileTiled = zone !== -1;
     }
 
     function moveClientToClosestZone(client) {
@@ -904,8 +940,7 @@ Item {
                 continue;
             }
 
-            recoverClientZone(window, layout, true);
-            if (window.zone === undefined || window.zone === -1 || window.layout !== layout) {
+            if (matchResizeZoneInLayout(window, layout) === -1 || window.layout !== layout) {
                 skipped.push(clientDebugName(window) + ": no layout zone");
                 continue;
             }
@@ -931,10 +966,8 @@ Item {
 
     function snapshotResizeGroup(client) {
         let layout = validLayoutIndex(client.layout) ? client.layout : currentLayout;
-        if (recoverClientZone(client, layout, true) === -1) {
-            matchZoneAnyLayout(client, currentLayout);
-            layout = validLayoutIndex(client.layout) ? client.layout : currentLayout;
-        }
+        if (matchResizeZoneInLayout(client, layout) === -1)
+            return null;
 
         if (client.zone === undefined || client.zone === -1 || !validLayoutIndex(layout))
             return null;
@@ -1214,6 +1247,7 @@ Item {
             window.layout = item.layout;
             window.desktop = snapshot.desktop;
             window.activity = snapshot.activity;
+            window.magnetileTiled = true;
             applied = true;
             resizeDebugInfo.appliedCount = (resizeDebugInfo.appliedCount || 0) + 1;
         }
@@ -1222,6 +1256,7 @@ Item {
         client.layout = snapshot.layout;
         client.desktop = snapshot.desktop;
         client.activity = snapshot.activity;
+        client.magnetileTiled = true;
         updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
         resizeDebugInfo.lastApplied = applied;
         resizeDebugInfo = Object.assign({}, resizeDebugInfo);

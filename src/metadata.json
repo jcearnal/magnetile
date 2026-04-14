@@ -19,7 +19,7 @@
         "ServiceTypes": [
             "KWin/Script"
         ],
-        "Version": "0.1.0",
+        "Version": "0.1.1",
         "Website": "https://github.com/jcearnal/magnetile.git"
     },
     "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
