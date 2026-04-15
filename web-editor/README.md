@@ -1,6 +1,7 @@
 # KWin Layout Editor
 
-This is a standalone, client-side visual editor for Magnetile and KZones layout JSON.
+This is a standalone, client-side visual editor for Magnetile, KZones, and
+[PlasmaZones](https://github.com/fuddlesworth/PlasmaZones) layout JSON.
 
 It edits the shared KWin script layout schema:
 
@@ -11,12 +12,16 @@ It edits the shared KWin script layout schema:
 
 ## Compatibility
 
-The default export target is Magnetile. The KZones export target emits the same documented KZones-compatible layout array and keeps common optional KZones fields.
+The default export target is Magnetile. The KZones export target emits the same
+documented KZones-compatible layout array and keeps common optional KZones
+fields. PlasmaZones can import KZones layouts, so use the KZones export target
+for PlasmaZones.
 
 Use the generated JSON in:
 
 - `System Settings / Window Management / KWin Scripts / Magnetile / Layouts`
 - `System Settings / Window Management / KWin Scripts / KZones / Layouts`
+- PlasmaZones' KZones layout import flow
 
 After saving settings, disable and enable the KWin script if the new layout does not appear immediately.
 

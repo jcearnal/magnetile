@@ -99,7 +99,8 @@ Use the standalone browser editor at
 [https://jcearnal.github.io/magnetile/](https://jcearnal.github.io/magnetile/)
 to design layouts without writing JSON by hand. The editor previews padding,
 screen ratios, and zone snapping, then exports the shared layout JSON schema
-used by Magnetile and KZones.
+used by Magnetile, KZones, and
+[PlasmaZones](https://github.com/fuddlesworth/PlasmaZones).
 
 ![](./media/editor.gif)
 
@@ -304,8 +305,10 @@ To use it:
 9. Apply the settings, then disable and enable Magnetile or restart KWin if the
    new layout does not appear immediately.
 
-The editor can also export KZones-compatible layout JSON. KZones users can
-select **KZones** as the export target and paste the generated JSON into
+The editor can also export KZones-compatible layout JSON. KZones and
+[PlasmaZones](https://github.com/fuddlesworth/PlasmaZones) users can select
+**KZones** as the export target and paste the generated JSON into their script's
+layout settings. For KZones, use
 `System Settings / Window Management / KWin Scripts / KZones / Layouts`.
 
 You can also open and save `.json` files in the editor for backup or reuse.
