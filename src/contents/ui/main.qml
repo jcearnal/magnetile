@@ -25,6 +25,7 @@ Item {
     property var resizeDebugInfo: new Object()
     property int highlightedZone: -1
     property var highlightedTarget: null
+    property bool mergedZoneSelectionArmed: false
     property bool selectingMergedZones: false
     property var pendingMergeZones: []
     property var activeScreen: null
@@ -674,7 +675,10 @@ Item {
 
     function toggleMergedZoneSelection() {
         if (!moving || !mainDialog.visible) {
-            Utils.osd("Multi-zone selection is only available while moving a window");
+            mergedZoneSelectionArmed = !mergedZoneSelectionArmed;
+            selectingMergedZones = false;
+            pendingMergeZones = [];
+            Utils.osd(mergedZoneSelectionArmed ? "Multi-zone selection armed for next drag" : "Multi-zone selection disarmed");
             return;
         }
 
@@ -1335,6 +1339,7 @@ Item {
         highlightedZone = -1;
         highlightedTarget = null;
         selectingMergedZones = false;
+        mergedZoneSelectionArmed = false;
         pendingMergeZones = [];
         refreshClientArea(activeScreen || Workspace.activeScreen);
         outputSettleTimer.restart();
@@ -1915,8 +1920,12 @@ Item {
                     resizing = false;
                     freeMoving = client.magnetileFreeMove === true;
                     highlightedTarget = null;
-                    selectingMergedZones = false;
+                    selectingMergedZones = mergedZoneSelectionArmed;
+                    mergedZoneSelectionArmed = false;
                     pendingMergeZones = [];
+                    if (selectingMergedZones)
+                        Utils.osd("Multi-zone selection started");
+
                     Utils.log("Move start " + client.resourceClass.toString());
                     if (freeMoving)
                         mainDialog.hide();

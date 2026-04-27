@@ -151,8 +151,8 @@ the selector, or per-monitor defaults.
 
 Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
-While dragging a window, `Ctrl+Alt+Z` starts multi-zone selection; hover
-additional adjacent zones and drop to create a temporary merged zone that lasts
+Press `Ctrl+Alt+Z` before dragging to arm multi-zone selection for the next
+drag. Hover adjacent zones and drop to create a temporary merged zone that lasts
 until the current layout is reset.
 
 ![](./media/shortcuts.gif)
