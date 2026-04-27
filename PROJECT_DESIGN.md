@@ -366,7 +366,7 @@ Current default shortcuts avoid numpad dependency:
 - `Meta+Shift+Space`: snap active window.
 - `Ctrl+Alt+F`: free active window from Magnetile drag snapping.
 - `Ctrl+Alt+C`: toggle zone overlay while moving.
-- `Ctrl+Alt+M`: toggle multi-zone selection while moving. Hover more zones while
+- `Ctrl+Alt+Z`: toggle multi-zone selection while moving. Hover more zones while
   selection is active, then drop the window to create a temporary runtime merge.
 - `Ctrl+Alt+R`: reset windows in the current layout back to configured zone
   geometry.
@@ -466,7 +466,7 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
   layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
-- While dragging a window, press `Ctrl+Alt+M`, hover adjacent zones, and drop.
+- While dragging a window, press `Ctrl+Alt+Z`, hover adjacent zones, and drop.
   Confirm the overlay now shows the merged area as one snap target and that
   `Ctrl+Alt+R` restores the original zone split.
 - Press `Meta+Shift+S` and drag screenshot regions across every active

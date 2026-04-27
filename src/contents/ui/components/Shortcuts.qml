@@ -71,7 +71,7 @@ Item {
     ShortcutHandler {
         name: "Magnetile: Toggle multi-zone selection"
         text: "Magnetile: Toggle multi-zone selection"
-        sequence: "Ctrl+Alt+M"
+        sequence: "Ctrl+Alt+Z"
         onActivated: {
             toggleMergedZoneSelection();
         }

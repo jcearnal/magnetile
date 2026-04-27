@@ -151,7 +151,7 @@ the selector, or per-monitor defaults.
 
 Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
-While dragging a window, `Ctrl+Alt+M` starts multi-zone selection; hover
+While dragging a window, `Ctrl+Alt+Z` starts multi-zone selection; hover
 additional adjacent zones and drop to create a temporary merged zone that lasts
 until the current layout is reset.
 
@@ -553,7 +553,7 @@ List of all available shortcuts:
 | Cycle layouts                                      | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>D</kbd>                     |
 | Cycle layouts (reversed)                           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>  |
 | Toggle zone overlay                                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>                     |
-| Toggle multi-zone selection while moving           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>M</kbd>                     |
+| Toggle multi-zone selection while moving           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Z</kbd>                     |
 | Activate layout                                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1-9</kbd> |
 | Free active window                                 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>                     |
 | Reset current layout                               | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd>                     |
