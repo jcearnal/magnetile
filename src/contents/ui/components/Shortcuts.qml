@@ -9,6 +9,7 @@ Item {
     signal moveActiveWindowToNextZone()
     signal moveActiveWindowToPreviousZone()
     signal toggleZoneOverlay()
+    signal toggleMergedZoneSelection()
     signal switchToNextWindowInCurrentZone()
     signal switchToPreviousWindowInCurrentZone()
     signal moveActiveWindowToZone(int zone)
@@ -64,6 +65,15 @@ Item {
         sequence: "Ctrl+Alt+C"
         onActivated: {
             toggleZoneOverlay();
+        }
+    }
+
+    ShortcutHandler {
+        name: "Magnetile: Toggle multi-zone selection"
+        text: "Magnetile: Toggle multi-zone selection"
+        sequence: "Ctrl+Alt+M"
+        onActivated: {
+            toggleMergedZoneSelection();
         }
     }
 

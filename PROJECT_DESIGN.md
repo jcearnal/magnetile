@@ -279,11 +279,12 @@ behavior ambiguous.
 
 ### Runtime Merged Zones Phases
 
-Implementation status: Phase 1 is implemented on the
+Implementation status: Phases 1-5 are implemented on the
 `feature/runtime-merged-zones` branch. The code now has merge state, scope keys,
-zone normalization, client-zone helpers, union geometry, and
-`effectiveZoneTargets()`, but existing snapping and overlay paths still use the
-single-zone behavior until later phases wire in the target layer.
+zone normalization, client-zone helpers, union geometry, `effectiveZoneTargets()`,
+runtime merge storage, effective-target overlay rendering, drag/drop target
+resolution, conflict cleanup, reset clearing, and a toggle-based multi-zone
+selection flow. Connected resize remains conservative for multi-zone windows.
 
 Phase 1: Add the effective layout layer without changing behavior.
 
@@ -365,6 +366,8 @@ Current default shortcuts avoid numpad dependency:
 - `Meta+Shift+Space`: snap active window.
 - `Ctrl+Alt+F`: free active window from Magnetile drag snapping.
 - `Ctrl+Alt+C`: toggle zone overlay while moving.
+- `Ctrl+Alt+M`: toggle multi-zone selection while moving. Hover more zones while
+  selection is active, then drop the window to create a temporary runtime merge.
 - `Ctrl+Alt+R`: reset windows in the current layout back to configured zone
   geometry.
 
@@ -401,7 +404,9 @@ provide a matching key-release signal that can be used as a robust global
 
 - Connected resize depends on KWin's interactive resize step events, so apps
   that throttle or reject scripted geometry updates may feel less fluid.
-- Overlapping zones and multi-zone spanning are not fully solved.
+- Overlapping configured zones are not fully solved.
+- Connected resize for multi-zone windows is conservative; multi-zone windows are
+  treated as merged effective targets rather than editable internal boundaries.
 - Multiple windows stacked in one zone can make resize behavior ambiguous.
 - Some GTK/Flatpak apps may fight requested geometry.
 - KWin script config reload is unreliable; disabling/enabling or restarting KWin scripting may be needed after config changes.
@@ -461,6 +466,9 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
   layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
+- While dragging a window, press `Ctrl+Alt+M`, hover adjacent zones, and drop.
+  Confirm the overlay now shows the merged area as one snap target and that
+  `Ctrl+Alt+R` restores the original zone split.
 - Press `Meta+Shift+S` and drag screenshot regions across every active
   Magnetile zone. The selector should cover the full output and captures should
   not be offset.
