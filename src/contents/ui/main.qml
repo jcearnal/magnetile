@@ -21,6 +21,7 @@ Item {
     property int currentLayout: 0
     property var screenLayouts: new Object()
     property var resizedZoneGeometries: new Object()
+    property var mergedZones: new Object()
     property var resizeDebugInfo: new Object()
     property int highlightedZone: -1
     property var activeScreen: null
@@ -366,6 +367,212 @@ Item {
             activity !== undefined && activity !== null ? activity : ""
         ];
         return parts.join(":");
+    }
+
+    function layoutScopeKey(layoutIndex, screen, desktop, activity) {
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const area = workspaceArea(resolvedScreen, resolvedDesktop);
+        const parts = [
+            clampLayoutIndex(layoutIndex),
+            outputName(resolvedScreen),
+            area.x,
+            area.y,
+            area.width,
+            area.height,
+            resolvedDesktop && resolvedDesktop.id ? resolvedDesktop.id : "",
+            activity !== undefined && activity !== null ? activity : ""
+        ];
+        return parts.join(":");
+    }
+
+    function isArrayValue(value) {
+        return Object.prototype.toString.call(value) === "[object Array]";
+    }
+
+    function normalizeZoneList(layoutIndex, zones) {
+        if (!validLayoutIndex(layoutIndex))
+            return [];
+
+        const input = isArrayValue(zones) ? zones : [zones];
+        const seen = {};
+        const normalized = [];
+        for (let i = 0; i < input.length; i++) {
+            const zone = Number(input[i]);
+            if (!isFinite(zone))
+                continue;
+
+            const index = Math.round(zone);
+            if (!validZoneIndex(layoutIndex, index) || seen[index])
+                continue;
+
+            seen[index] = true;
+            normalized.push(index);
+        }
+        normalized.sort(function(a, b) {
+            return a - b;
+        });
+        return normalized;
+    }
+
+    function mergeIdForZones(zones) {
+        return zones.join(",");
+    }
+
+    function activeMergedZones(layoutIndex, screen, desktop, activity) {
+        const key = layoutScopeKey(layoutIndex, screen, desktop, activity);
+        const merges = mergedZones[key];
+        return isArrayValue(merges) ? merges : [];
+    }
+
+    function clientZones(client) {
+        if (!client)
+            return [];
+
+        if (validLayoutIndex(client.layout)) {
+            const multiZones = normalizeZoneList(client.layout, client.zones);
+            if (multiZones.length > 0)
+                return multiZones;
+
+            if (validZoneIndex(client.layout, client.zone))
+                return [Math.round(Number(client.zone))];
+        }
+        return [];
+    }
+
+    function zonesOverlap(a, b) {
+        const seen = {};
+        for (let i = 0; i < a.length; i++)
+            seen[a[i]] = true;
+
+        for (let i = 0; i < b.length; i++) {
+            if (seen[b[i]])
+                return true;
+
+        }
+        return false;
+    }
+
+    function zonesUnionGeometry(layoutIndex, zones, screen) {
+        const normalized = normalizeZoneList(layoutIndex, zones);
+        if (normalized.length === 0)
+            return null;
+
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        for (let i = 0; i < normalized.length; i++) {
+            const geometry = zoneGeometry(layoutIndex, normalized[i], screen);
+            left = Math.min(left, geometry.x);
+            top = Math.min(top, geometry.y);
+            right = Math.max(right, geometry.x + geometry.width);
+            bottom = Math.max(bottom, geometry.y + geometry.height);
+        }
+
+        if (!isFinite(left) || !isFinite(top) || !isFinite(right) || !isFinite(bottom))
+            return null;
+
+        return roundedRect(left, top, right - left, bottom - top);
+    }
+
+    function configuredZoneForTarget(layoutIndex, zoneIndex) {
+        if (!validZoneIndex(layoutIndex, zoneIndex))
+            return {};
+
+        return config.layouts[clampLayoutIndex(layoutIndex)].zones[zoneIndex] || {};
+    }
+
+    function targetGeometry(target) {
+        if (!target)
+            return null;
+
+        const stored = rectFromStoredGeometry(target.geometry);
+        if (stored)
+            return stored;
+
+        if (target.type === "merge")
+            return zonesUnionGeometry(target.layout, target.zones, target.output || activeScreen || Workspace.activeScreen);
+
+        if (validZoneIndex(target.layout, target.zone))
+            return zoneGeometry(target.layout, target.zone, target.output || activeScreen || Workspace.activeScreen);
+
+        return null;
+    }
+
+    function targetContainsZone(target, zone) {
+        if (!target)
+            return false;
+
+        const zones = normalizeZoneList(target.layout, target.zones !== undefined ? target.zones : target.zone);
+        return zones.indexOf(Math.round(Number(zone))) !== -1;
+    }
+
+    function effectiveZoneTargets(layoutIndex, screen, desktop, activity) {
+        if (!validLayoutIndex(layoutIndex))
+            return [];
+
+        const layout = clampLayoutIndex(layoutIndex);
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const resolvedActivity = activity !== undefined && activity !== null ? activity : Workspace.currentActivity;
+        const hiddenZones = {};
+        const targets = [];
+        const merges = activeMergedZones(layout, resolvedScreen, resolvedDesktop, resolvedActivity);
+
+        for (let i = 0; i < merges.length; i++) {
+            const merge = merges[i] || {};
+            const zones = normalizeZoneList(layout, merge.zones);
+            if (zones.length === 0)
+                continue;
+
+            const geometry = rectFromStoredGeometry(merge.geometry) || zonesUnionGeometry(layout, zones, resolvedScreen);
+            if (!geometry)
+                continue;
+
+            const anchor = zones[0];
+            const anchorZone = configuredZoneForTarget(layout, anchor);
+            for (let zoneIndex = 0; zoneIndex < zones.length; zoneIndex++)
+                hiddenZones[zones[zoneIndex]] = true;
+
+            targets.push({
+                "type": "merge",
+                "id": merge.id || mergeIdForZones(zones),
+                "layout": layout,
+                "zone": anchor,
+                "zones": zones,
+                "geometry": geometry,
+                "output": resolvedScreen,
+                "color": merge.color || anchorZone.color,
+                "label": merge.label || zones.map(function(zone) {
+                    return zone + 1;
+                }).join("+")
+            });
+        }
+
+        const zones = config.layouts[layout].zones;
+        for (let i = 0; i < zones.length; i++) {
+            if (hiddenZones[i])
+                continue;
+
+            const geometry = zoneGeometry(layout, i, resolvedScreen);
+            targets.push({
+                "type": "zone",
+                "id": i.toString(),
+                "layout": layout,
+                "zone": i,
+                "zones": [i],
+                "geometry": geometry,
+                "output": resolvedScreen,
+                "color": zones[i].color,
+                "label": (i + 1).toString()
+            });
+        }
+
+        targets.sort(function(a, b) {
+            return a.zone - b.zone;
+        });
+        return targets;
     }
 
     function rectFromStoredGeometry(geometry) {

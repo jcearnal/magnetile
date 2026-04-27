@@ -279,6 +279,12 @@ behavior ambiguous.
 
 ### Runtime Merged Zones Phases
 
+Implementation status: Phase 1 is implemented on the
+`feature/runtime-merged-zones` branch. The code now has merge state, scope keys,
+zone normalization, client-zone helpers, union geometry, and
+`effectiveZoneTargets()`, but existing snapping and overlay paths still use the
+single-zone behavior until later phases wire in the target layer.
+
 Phase 1: Add the effective layout layer without changing behavior.
 
 - Add `mergedZones` and scope-key helpers in `main.qml`.
