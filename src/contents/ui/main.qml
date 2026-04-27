@@ -2311,6 +2311,7 @@ Item {
                     id: mergePreview
 
                     property var geometry: root.mergePreviewTarget ? root.targetGeometry(root.mergePreviewTarget) : null
+                    readonly property color mergeColor: "#00d5ff"
 
                     visible: geometry !== null
                     x: geometry ? geometry.x - clientArea.x : 0
@@ -2318,15 +2319,15 @@ Item {
                     width: geometry ? geometry.width : 0
                     height: geometry ? geometry.height : 0
                     color: "transparent"
-                    border.color: mainColorHelper.accentColor
+                    border.color: mergeColor
                     border.width: 8
                     radius: 8
                     z: 100
 
                     Rectangle {
                         anchors.fill: parent
-                        color: mainColorHelper.accentColor
-                        opacity: 0.22
+                        color: mergePreview.mergeColor
+                        opacity: 0.2
                         radius: parent.radius
                     }
 
@@ -2338,7 +2339,7 @@ Item {
                         height: mergePreviewLabel.implicitHeight + 14
                         radius: 7
                         color: mainColorHelper.backgroundColor
-                        border.color: mainColorHelper.accentColor
+                        border.color: mergePreview.mergeColor
                         border.width: 2
 
                         PlasmaComponents.Label {
