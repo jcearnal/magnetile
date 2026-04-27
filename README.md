@@ -151,9 +151,10 @@ the selector, or per-monitor defaults.
 
 Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
-Press `Ctrl+Alt+Z` before dragging to arm multi-zone selection for the next
-drag. Hover adjacent zones and drop to create a temporary merged zone that lasts
-until the current layout is reset.
+Drop a dragged window near the shared edge between adjacent zones to create a
+temporary merged zone. Magnetile shows a larger highlighted preview when the
+drop position will span multiple zones. Dropping in the middle of a zone keeps
+normal single-zone snapping.
 
 ![](./media/shortcuts.gif)
 
@@ -553,7 +554,6 @@ List of all available shortcuts:
 | Cycle layouts                                      | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>D</kbd>                     |
 | Cycle layouts (reversed)                           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>  |
 | Toggle zone overlay                                | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>                     |
-| Toggle multi-zone selection while moving           | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Z</kbd>                     |
 | Activate layout                                    | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1-9</kbd> |
 | Free active window                                 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>                     |
 | Reset current layout                               | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd>                     |

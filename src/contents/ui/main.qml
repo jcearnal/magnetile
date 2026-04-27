@@ -25,9 +25,7 @@ Item {
     property var resizeDebugInfo: new Object()
     property int highlightedZone: -1
     property var highlightedTarget: null
-    property bool mergedZoneSelectionArmed: false
-    property bool selectingMergedZones: false
-    property var pendingMergeZones: []
+    property var mergePreviewTarget: null
     property var activeScreen: null
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
     property int geometryTolerance: 3
@@ -650,51 +648,55 @@ Item {
         return target;
     }
 
-    function addZonesToPendingMerge(zones, notify) {
-        const candidate = normalizeZoneList(currentLayout, pendingMergeZones.concat(normalizeZoneList(currentLayout, zones)));
-        if (candidate.length === pendingMergeZones.length)
-            return false;
+    function mergeTargetNearPoint(layoutIndex, screen, desktop, activity, point, baseTarget) {
+        if (!baseTarget)
+            return null;
 
-        if (!zonesFormRectangle(currentLayout, candidate)) {
-            if (notify)
-                Utils.osd("Merged zones must form a rectangle");
+        const layout = clampLayoutIndex(layoutIndex);
+        const threshold = Math.max(24, (config.layouts[layout].padding || 0) + 18);
+        const baseGeometry = targetGeometry(baseTarget);
+        if (!baseGeometry)
+            return null;
 
-            return false;
+        const selected = normalizeZoneList(layout, baseTarget.zones);
+        const targets = effectiveZoneTargets(layout, screen, desktop, activity);
+        const baseEdges = rectEdges(baseGeometry);
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (!target || target.id === baseTarget.id)
+                continue;
+
+            const geometry = targetGeometry(target);
+            if (!geometry)
+                continue;
+
+            const edges = rectEdges(geometry);
+            const verticalOverlap = rangesOverlap(baseEdges.top, baseEdges.bottom, edges.top, edges.bottom, 1);
+            const horizontalOverlap = rangesOverlap(baseEdges.left, baseEdges.right, edges.left, edges.right, 1);
+            const nearBaseRight = Math.abs(point.x - baseEdges.right) <= threshold && Math.abs(edges.left - baseEdges.right) <= threshold && verticalOverlap;
+            const nearBaseLeft = Math.abs(point.x - baseEdges.left) <= threshold && Math.abs(edges.right - baseEdges.left) <= threshold && verticalOverlap;
+            const nearBaseBottom = Math.abs(point.y - baseEdges.bottom) <= threshold && Math.abs(edges.top - baseEdges.bottom) <= threshold && horizontalOverlap;
+            const nearBaseTop = Math.abs(point.y - baseEdges.top) <= threshold && Math.abs(edges.bottom - baseEdges.top) <= threshold && horizontalOverlap;
+            if (!nearBaseRight && !nearBaseLeft && !nearBaseBottom && !nearBaseTop)
+                continue;
+
+            const candidate = normalizeZoneList(layout, selected.concat(normalizeZoneList(layout, target.zones)));
+            if (candidate.length > selected.length && zonesFormRectangle(layout, candidate))
+                return mergeTargetFromZones(layout, candidate, screen, desktop, activity);
+
         }
-
-        pendingMergeZones = candidate;
-        return true;
+        return null;
     }
 
-    function toggleMergedZoneSelection() {
-        if (!moving || !mainDialog.visible) {
-            mergedZoneSelectionArmed = !mergedZoneSelectionArmed;
-            selectingMergedZones = false;
-            pendingMergeZones = [];
-            Utils.osd(mergedZoneSelectionArmed ? "Multi-zone selection armed for next drag" : "Multi-zone selection disarmed");
-            return;
-        }
+    function resolveDropTarget(screen) {
+        if (!highlightedTarget)
+            return null;
 
-        if (!selectingMergedZones) {
-            const initialZones = highlightedTarget ? highlightedTarget.zones : (validZoneIndex(currentLayout, highlightedZone) ? [highlightedZone] : []);
-            if (initialZones.length === 0) {
-                Utils.osd("Hover a zone before starting multi-zone selection");
-                return;
-            }
+        const candidate = mergeTargetNearPoint(currentLayout, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos, highlightedTarget);
+        if (candidate && candidate.type === "merge")
+            return mergeZones(currentLayout, candidate.zones, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
 
-            pendingMergeZones = normalizeZoneList(currentLayout, initialZones);
-            selectingMergedZones = true;
-            Utils.osd("Multi-zone selection started");
-            return;
-        }
-
-        if (pendingMergeZones.length > 1) {
-            Utils.osd("Multi-zone selection ready");
-        } else {
-            selectingMergedZones = false;
-            pendingMergeZones = [];
-            Utils.osd("Multi-zone selection cancelled");
-        }
+        return highlightedTarget;
     }
 
     function effectiveZoneTargets(layoutIndex, screen, desktop, activity) {
@@ -1331,9 +1333,7 @@ Item {
         zoneSelector.near = false;
         highlightedZone = -1;
         highlightedTarget = null;
-        selectingMergedZones = false;
-        mergedZoneSelectionArmed = false;
-        pendingMergeZones = [];
+        mergePreviewTarget = null;
         refreshClientArea(activeScreen || Workspace.activeScreen);
         outputSettleTimer.restart();
         Utils.log("Output geometry changed: " + reason);
@@ -1913,12 +1913,6 @@ Item {
                     resizing = false;
                     freeMoving = client.magnetileFreeMove === true;
                     highlightedTarget = null;
-                    selectingMergedZones = mergedZoneSelectionArmed;
-                    mergedZoneSelectionArmed = false;
-                    pendingMergeZones = [];
-                    if (selectingMergedZones)
-                        Utils.osd("Multi-zone selection started");
-
                     Utils.log("Move start " + client.resourceClass.toString());
                     if (freeMoving)
                         mainDialog.hide();
@@ -1972,11 +1966,9 @@ Item {
                     if (freeMoving) {
                         freeClient(client);
                     } else if (mainDialog.visible) {
-                        const target = selectingMergedZones && pendingMergeZones.length > 1 ? mergeZones(currentLayout, pendingMergeZones, clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity) : highlightedTarget;
+                        const target = resolveDropTarget(clientOutput(client));
                         if (target)
                             moveClientToTarget(client, target);
-                        else if (highlightedTarget)
-                            moveClientToTarget(client, highlightedTarget);
                         else
                             moveClientToZone(client, highlightedZone);
                     } else {
@@ -2137,8 +2129,7 @@ Item {
             zoneSelector.near = false;
             highlightedZone = -1;
             highlightedTarget = null;
-            selectingMergedZones = false;
-            pendingMergeZones = [];
+            mergePreviewTarget = null;
             showZoneOverlay = config.zoneOverlayShowWhen == 0;
         }
 
@@ -2269,14 +2260,13 @@ Item {
 	                            });
 	                        }
 	                    }
-	                    // if hovering zone changed from the last frame
-	                    if (hoveringZone != highlightedZone || (hoveringTarget && highlightedTarget && hoveringTarget.id != highlightedTarget.id) || (hoveringTarget && !highlightedTarget) || (!hoveringTarget && highlightedTarget)) {
-	                        Utils.log("Highlighting zone " + hoveringZone + " in layout " + currentLayout);
-	                        highlightedZone = hoveringZone;
-	                        highlightedTarget = hoveringTarget;
-	                    }
-                    if (selectingMergedZones && hoveringTarget)
-                        addZonesToPendingMerge(hoveringTarget.zones);
+                    // if hovering zone changed from the last frame
+                    if (hoveringZone != highlightedZone || (hoveringTarget && highlightedTarget && hoveringTarget.id != highlightedTarget.id) || (hoveringTarget && !highlightedTarget) || (!hoveringTarget && highlightedTarget)) {
+                        Utils.log("Highlighting zone " + hoveringZone + " in layout " + currentLayout);
+                        highlightedZone = hoveringZone;
+                        highlightedTarget = hoveringTarget;
+                    }
+                    mergePreviewTarget = mergeTargetNearPoint(currentLayout, activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos, highlightedTarget);
 		                }
 		            }
 
@@ -2317,6 +2307,23 @@ Item {
                     config: root.config
                     currentLayout: root.currentLayout
                     highlightedZone: root.highlightedZone
+                }
+
+                Rectangle {
+                    id: mergePreview
+
+                    property var geometry: root.mergePreviewTarget ? root.targetGeometry(root.mergePreviewTarget) : null
+
+                    visible: geometry !== null
+                    x: geometry ? geometry.x - clientArea.x : 0
+                    y: geometry ? geometry.y - clientArea.y : 0
+                    width: geometry ? geometry.width : 0
+                    height: geometry ? geometry.height : 0
+                    color: mainColorHelper.accentColor
+                    opacity: 0.18
+                    border.color: mainColorHelper.accentColor
+                    border.width: 5
+                    radius: 8
                 }
 
             }
@@ -2367,9 +2374,6 @@ Item {
                 showZoneOverlay = !showZoneOverlay;
             else
                 Utils.osd("The overlay can only be shown while moving a window");
-        }
-        onToggleMergedZoneSelection: {
-            toggleMergedZoneSelection();
         }
         onSwitchToNextWindowInCurrentZone: {
             const client = Workspace.activeWindow;

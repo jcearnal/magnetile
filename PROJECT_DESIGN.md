@@ -283,8 +283,8 @@ Implementation status: Phases 1-5 are implemented on the
 `feature/runtime-merged-zones` branch. The code now has merge state, scope keys,
 zone normalization, client-zone helpers, union geometry, `effectiveZoneTargets()`,
 runtime merge storage, effective-target overlay rendering, drag/drop target
-resolution, conflict cleanup, reset clearing, and a toggle-based multi-zone
-selection flow. Connected resize remains conservative for multi-zone windows.
+resolution, conflict cleanup, reset clearing, and edge/gutter drop spanning.
+Connected resize remains conservative for multi-zone windows.
 
 Phase 1: Add the effective layout layer without changing behavior.
 
@@ -314,14 +314,15 @@ Phase 3: Update preview and hover detection.
 
 Phase 4: Add multi-zone selection UX.
 
-- Prefer a toggleable selection mode during a drag instead of a held modifier for
-  the first version. KWin `ShortcutHandler` is reliable for activation events but
-  does not provide robust global key-release state.
-- Track temporary state such as `selectingMergedZones` and `pendingMergeZones`.
-- While selecting, hovering additional zones adds them to the pending merge.
-- Only allow contiguous rectangular selections for the MVP. If the selection is
-  invalid, keep the last valid target or no-op on drop.
-- On drop, create the runtime merge and snap the window to the merged target.
+- KWin global shortcuts are not reliable during interactive window moves, so do
+  not depend on held or toggled keyboard state.
+- Use edge/gutter spanning: when a drop lands within the merge threshold around
+  a shared edge between effective targets, create a runtime merge for those
+  adjacent targets.
+- Show a larger merge preview while the cursor is within that threshold so the
+  user can see when the drop will span multiple zones.
+- Dropping in the middle of a target keeps normal single-zone snapping.
+- Only allow contiguous rectangular selections for the MVP.
 
 Phase 5: Sweep compatibility paths.
 
@@ -366,10 +367,6 @@ Current default shortcuts avoid numpad dependency:
 - `Meta+Shift+Space`: snap active window.
 - `Ctrl+Alt+F`: free active window from Magnetile drag snapping.
 - `Ctrl+Alt+C`: toggle zone overlay while moving.
-- `Ctrl+Alt+Z`: arm multi-zone selection for the next drag. It can also toggle
-  selection while moving on sessions that deliver global shortcuts during an
-  interactive move. Hover more zones while selection is active, then drop the
-  window to create a temporary runtime merge.
 - `Ctrl+Alt+R`: reset windows in the current layout back to configured zone
   geometry.
 
@@ -468,9 +465,9 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
   layout geometry.
 - Press `Ctrl+Alt+F`, drag the active window freely, then press `Ctrl+Alt+F`
   again and confirm zone snapping returns.
-- Press `Ctrl+Alt+Z`, drag a window, hover adjacent zones, and drop.
-  Confirm the overlay now shows the merged area as one snap target and that
-  `Ctrl+Alt+R` restores the original zone split.
+- Drop a window near the shared edge between adjacent zones. Confirm a larger
+  merge preview appears before release, the overlay then shows the merged area
+  as one snap target, and `Ctrl+Alt+R` restores the original zone split.
 - Press `Meta+Shift+S` and drag screenshot regions across every active
   Magnetile zone. The selector should cover the full output and captures should
   not be offset.
