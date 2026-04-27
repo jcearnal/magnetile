@@ -156,6 +156,10 @@ temporary merged zone. Magnetile shows a larger highlighted preview when the
 drop position will span multiple zones. Dropping in the middle of a zone keeps
 normal single-zone snapping.
 
+If another tiled window already occupies one of the zones that becomes part of
+the merge, Magnetile expands that window to the same merged target instead of
+leaving it underneath or marking it floating.
+
 ![](./media/shortcuts.gif)
 
 ### Theming

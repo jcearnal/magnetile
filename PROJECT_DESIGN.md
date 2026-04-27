@@ -323,6 +323,8 @@ Phase 4: Add multi-zone selection UX.
   user can see when the drop will span multiple zones.
 - Dropping in the middle of a target keeps normal single-zone snapping.
 - Only allow contiguous rectangular selections for the MVP.
+- Existing tiled windows whose occupied zones overlap the new merged target move
+  to the merged target as well, so zone stacks remain coherent after a merge.
 
 Phase 5: Sweep compatibility paths.
 

@@ -1093,7 +1093,7 @@ Item {
 
         refreshClientAreaForClient(client);
         Utils.log("Moving client " + client.resourceClass.toString() + " to target " + target.id + " with geometry " + JSON.stringify(geometry));
-        clearClientsOverlappingTarget(client, target);
+        moveClientsOverlappingTarget(client, target, geometry);
         saveClientTargetProperties(client, target);
         client.magnetileFreeMove = false;
         client.setMaximize(false, false);
@@ -1168,9 +1168,9 @@ Item {
         client.magnetileTiled = true;
     }
 
-    function clearClientsOverlappingTarget(activeClient, target) {
+    function moveClientsOverlappingTarget(activeClient, target, geometry) {
         const targetZones = normalizeZoneList(target.layout, target.zones);
-        if (targetZones.length === 0)
+        if (targetZones.length === 0 || !geometry)
             return;
 
         const output = target.output || clientOutput(activeClient);
@@ -1188,13 +1188,11 @@ Item {
             if (!zonesOverlap(clientZones(client), targetZones))
                 continue;
 
-            client.zone = -1;
-            client.layout = -1;
-            client.desktop = Workspace.currentDesktop;
-            client.activity = Workspace.currentActivity;
-            client.magnetileTiled = false;
+            saveClientTargetProperties(client, target);
+            client.magnetileFreeMove = false;
+            client.setMaximize(false, false);
+            client.frameGeometry = geometry;
             client.magnetileResizeSnapshot = null;
-            clearClientTargetProperties(client);
         }
     }
 
@@ -2319,11 +2317,39 @@ Item {
                     y: geometry ? geometry.y - clientArea.y : 0
                     width: geometry ? geometry.width : 0
                     height: geometry ? geometry.height : 0
-                    color: mainColorHelper.accentColor
-                    opacity: 0.18
+                    color: "transparent"
                     border.color: mainColorHelper.accentColor
-                    border.width: 5
+                    border.width: 8
                     radius: 8
+                    z: 100
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: mainColorHelper.accentColor
+                        opacity: 0.22
+                        radius: parent.radius
+                    }
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.topMargin: 14
+                        width: mergePreviewLabel.implicitWidth + 28
+                        height: mergePreviewLabel.implicitHeight + 14
+                        radius: 7
+                        color: mainColorHelper.backgroundColor
+                        border.color: mainColorHelper.accentColor
+                        border.width: 2
+
+                        PlasmaComponents.Label {
+                            id: mergePreviewLabel
+
+                            anchors.centerIn: parent
+                            text: root.mergePreviewTarget ? "Merge zones " + root.mergePreviewTarget.label : ""
+                            color: mainColorHelper.textColor
+                            font.bold: true
+                        }
+                    }
                 }
 
             }
