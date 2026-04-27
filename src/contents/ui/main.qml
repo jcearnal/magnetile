@@ -666,13 +666,6 @@ Item {
         return true;
     }
 
-    function pendingMergeTarget() {
-        if (!selectingMergedZones || pendingMergeZones.length <= 1)
-            return null;
-
-        return mergeTargetFromZones(currentLayout, pendingMergeZones, activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
-    }
-
     function toggleMergedZoneSelection() {
         if (!moving || !mainDialog.visible) {
             mergedZoneSelectionArmed = !mergedZoneSelectionArmed;
@@ -2203,7 +2196,7 @@ Item {
                     if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded && currentZones)
                         currentZones.repeater.model.forEach((target, targetIndex) => {
                         const targetItem = currentZones.repeater.itemAt(targetIndex);
-                        if (targetItem && Utils.isHovering(targetItem.children[config.zoneOverlayHighlightTarget])) {
+                        if (targetItem && Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, target.geometry)) {
                             hoveringZone = target.zone;
                             hoveringTarget = target;
                         }
@@ -2282,8 +2275,8 @@ Item {
 	                        highlightedZone = hoveringZone;
 	                        highlightedTarget = hoveringTarget;
 	                    }
-	                    if (selectingMergedZones && hoveringTarget)
-	                        addZonesToPendingMerge(hoveringTarget.zones);
+                    if (selectingMergedZones && hoveringTarget)
+                        addZonesToPendingMerge(hoveringTarget.zones);
 		                }
 		            }
 
@@ -2324,24 +2317,6 @@ Item {
                     config: root.config
                     currentLayout: root.currentLayout
                     highlightedZone: root.highlightedZone
-                }
-
-                Rectangle {
-                    id: pendingMergePreview
-
-                    property var target: root.pendingMergeTarget()
-                    property var geometry: target ? root.targetGeometry(target) : null
-
-                    visible: geometry !== null
-                    x: geometry ? geometry.x - clientArea.x : 0
-                    y: geometry ? geometry.y - clientArea.y : 0
-                    width: geometry ? geometry.width : 0
-                    height: geometry ? geometry.height : 0
-                    color: mainColorHelper.accentColor
-                    opacity: 0.12
-                    border.color: mainColorHelper.accentColor
-                    border.width: 4
-                    radius: 8
                 }
 
             }
