@@ -204,6 +204,145 @@ reloads.
 
 The implementation is edge-adjacent, not a full tile-tree solver. It works best for non-overlapping grids and shared-edge layouts.
 
+## Planned Runtime Merged Zones
+
+Issue #6 requests snapping a window across multiple adjacent zones. Implement
+this as runtime merged zones rather than only applying a larger window
+rectangle. A multi-zone snap should temporarily mutate the effective layout for
+the active output, desktop, activity, and layout until `Ctrl+Alt+R` resets that
+runtime state.
+
+The core rule is that once zones are merged, their member zones stop being
+independent snap targets. For example, if zones 1 and 2 are merged for a window,
+the overlay should show one combined target and another window should not be
+able to snap into only zone 1 underneath it. This prevents overlapping tiled
+state and keeps the preview consistent with the actual snap behavior.
+
+Keep configured layout JSON immutable. The effective runtime layout should be:
+
+```text
+configured layout
++ runtime resize geometry
++ runtime merged zones
+= effective snap/render targets
+```
+
+Add one shared target layer and make overlay rendering, hover detection, and
+drop behavior consume it:
+
+```js
+function effectiveZoneTargets(layout, screen, desktop, activity) {
+    // Return normal zones plus merged zones after hiding merge member zones.
+}
+```
+
+Each target should carry the data needed by both rendering and snapping:
+
+```js
+{
+    type: "merge",              // or "zone"
+    id: "0,1",                  // stable id for merged zones
+    zone: 0,                    // anchor zone for compatibility
+    zones: [0, 1],              // all occupied configured zones
+    geometry: Qt.rect(...),
+    color: ...,
+    label: "1+2"
+}
+```
+
+Store merge state separately from `config.layouts`, keyed by the same scope used
+for runtime resize geometry: layout, output name, client area, desktop, and
+activity. A `mergedZones` root property is enough for the first implementation.
+If a new merge overlaps an existing merge, replace or clear the old overlapping
+merge so no two active targets claim the same configured zone.
+
+Window state should remain backward-compatible:
+
+- `client.zone`: anchor zone, usually the first zone in the target.
+- `client.zones`: full occupied zone array for multi-zone windows.
+- `client.magnetileMergedZone`: merge id such as `"0,1"` or an empty string.
+- `client.layout`, `client.desktop`, `client.activity`, and
+  `client.magnetileTiled`: same meaning as today.
+
+Use helpers instead of reading `client.zone` directly in new multi-zone logic:
+
+- `clientZones(client)`: returns `client.zones` when valid, otherwise
+  `[client.zone]`, otherwise an empty array.
+- `zonesOverlap(a, b)`: true when two zone arrays share a member.
+- `zonesUnionGeometry(layout, zones, screen)`: returns the bounding rectangle of
+  the current runtime geometries for those zones.
+- `moveClientToTarget(client, target)`: applies geometry and saves target state.
+
+Do not try to make `config.layouts[currentLayout].zones` represent runtime
+merged zones. That would make reset, user configuration, and layout editor
+behavior ambiguous.
+
+### Runtime Merged Zones Phases
+
+Phase 1: Add the effective layout layer without changing behavior.
+
+- Add `mergedZones` and scope-key helpers in `main.qml`.
+- Add `effectiveZoneTargets()`, `targetGeometry()`, and target membership
+  helpers.
+- Return one normal target per configured zone when there are no merges.
+- Keep existing drag/drop and shortcut behavior unchanged in this phase.
+
+Phase 2: Add runtime merge storage and programmatic snap support.
+
+- Add `mergeZones(layout, zones, screen, desktop, activity)`.
+- Add `moveClientToTarget(client, target)`.
+- Keep `moveClientToZone(client, zone)` as a compatibility wrapper around a
+  single-zone target.
+- Add conflict handling so overlapping merges cannot coexist.
+- Make `Ctrl+Alt+R` clear merge state for the active scope.
+
+Phase 3: Update preview and hover detection.
+
+- Change `src/contents/ui/components/Zones.qml` to render effective targets
+  instead of raw configured zones.
+- Change the overlay hover loop and edge-snapping hover loop to iterate
+  effective targets.
+- Underlying member zones of a merge must not render or accept hover/drop.
+- The target highlighted in the overlay must be the exact target used on drop.
+
+Phase 4: Add multi-zone selection UX.
+
+- Prefer a toggleable selection mode during a drag instead of a held modifier for
+  the first version. KWin `ShortcutHandler` is reliable for activation events but
+  does not provide robust global key-release state.
+- Track temporary state such as `selectingMergedZones` and `pendingMergeZones`.
+- While selecting, hovering additional zones adds them to the pending merge.
+- Only allow contiguous rectangular selections for the MVP. If the selection is
+  invalid, keep the last valid target or no-op on drop.
+- On drop, create the runtime merge and snap the window to the merged target.
+
+Phase 5: Sweep compatibility paths.
+
+- Update `recoverClientZone()`, `matchZoneInLayout()`, `getWindowsInZone()`,
+  fullscreen restore, snap all, snap closest, neighbor shortcuts, and debug
+  output to use `clientZones()` or effective targets where appropriate.
+- It is acceptable for some single-zone commands to collapse a multi-zone window
+  back to one zone, but that behavior should be explicit.
+
+Phase 6: Revisit connected resize.
+
+- For the first merged-zone release, either exclude multi-zone windows from
+  connected resize or treat the merged target as one large logical zone.
+- Do not attempt internal-boundary resize behavior until the effective target
+  model is stable.
+- Any connected resize work should operate on effective targets rather than raw
+  configured zones.
+
+Manual tests for this feature should include:
+
+- Merge two adjacent zones by dragging and confirm the overlay shows one target.
+- Try snapping another window into one member zone and confirm it cannot land
+  underneath the merged window.
+- Reset with `Ctrl+Alt+R` and confirm original configured zones return.
+- Repeat on a secondary monitor, another virtual desktop, and after switching
+  layouts.
+- Confirm normal single-zone shortcuts still work after a merge exists.
+
 ## Shortcuts
 
 Current default shortcuts avoid numpad dependency:

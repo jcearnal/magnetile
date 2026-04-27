@@ -67,6 +67,9 @@ Compared with the original KZones base, Magnetile adds:
 - Documentation for the current architecture, schema choices, local testing,
   and known KWin scripted-config limitations.
 
+See `PROJECT_DESIGN.md` for the future-session handoff, including the phased
+runtime merged-zones plan for multi-zone snapping.
+
 ## Features
 
 ### Magnetile-Specific Features
