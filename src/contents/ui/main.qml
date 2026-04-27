@@ -28,10 +28,12 @@ Item {
     property int geometryTolerance: 3
     property string signalToken: Math.random().toString() + Date.now().toString()
     property bool disposing: false
+    property bool outputsSettling: false
 
     function resizeDialogToClientArea(dialog) {
-        const width = Math.max(1, Math.round(clientArea.width || Workspace.virtualScreenSize.width || 1));
-        const height = Math.max(1, Math.round(clientArea.height || Workspace.virtualScreenSize.height || 1));
+        const fallbackSize = workspaceVirtualScreenSize();
+        const width = Math.max(1, Math.round(clientArea.width || fallbackSize.width || 1));
+        const height = Math.max(1, Math.round(clientArea.height || fallbackSize.height || 1));
         dialog.setWidth(width);
         dialog.setHeight(height);
     }
@@ -48,6 +50,45 @@ Item {
 
     function outputName(screen) {
         return screen && screen.name ? screen.name : "";
+    }
+
+    function workspaceVirtualScreenSize() {
+        try {
+            const size = Workspace.virtualScreenSize;
+            if (size && isFinite(size.width) && isFinite(size.height))
+                return size;
+
+        } catch (error) {
+            Utils.log("Could not read virtual screen size: " + error, "warning");
+        }
+        return Qt.size(0, 0);
+    }
+
+    function workspaceArea(screen, desktop) {
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        if (!resolvedScreen || !resolvedDesktop)
+            return Qt.rect(0, 0, 0, 0);
+
+        try {
+            const area = Workspace.clientArea(KWin.FullScreenArea, resolvedScreen, resolvedDesktop);
+            if (area && isFinite(area.x) && isFinite(area.y) && isFinite(area.width) && isFinite(area.height))
+                return area;
+
+        } catch (error) {
+            Utils.log("Could not read client area for " + outputName(resolvedScreen) + ": " + error, "warning");
+        }
+        return Qt.rect(0, 0, 0, 0);
+    }
+
+    function workspaceGeometryReady(screen) {
+        const size = workspaceVirtualScreenSize();
+        const area = workspaceArea(screen, Workspace.currentDesktop);
+        return size.width > 0 && size.height > 0 && area.width > 0 && area.height > 0;
+    }
+
+    function canMutateWindowGeometry(client) {
+        return !disposing && !outputsSettling && workspaceGeometryReady(client ? clientOutput(client) : activeScreen || Workspace.activeScreen);
     }
 
     function clampLayoutIndex(layout) {
@@ -95,7 +136,7 @@ Item {
     }
 
     function outputOrientation(screen) {
-        const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
+        const area = workspaceArea(screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
         return area.height > area.width ? "portrait" : "landscape";
     }
 
@@ -254,8 +295,8 @@ Item {
 
     function refreshClientArea(screen) {
         activeScreen = screen || Workspace.activeScreen;
-        clientArea = Workspace.clientArea(KWin.FullScreenArea, activeScreen, Workspace.currentDesktop);
-        displaySize = Workspace.virtualScreenSize;
+        clientArea = workspaceArea(activeScreen, Workspace.currentDesktop);
+        displaySize = workspaceVirtualScreenSize();
         currentLayout = getCurrentLayout();
     }
 
@@ -312,7 +353,7 @@ Item {
     function runtimeZoneKey(layoutIndex, zoneIndex, screen, desktop, activity) {
         const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
         const resolvedDesktop = desktop || Workspace.currentDesktop;
-        const area = Workspace.clientArea(KWin.FullScreenArea, resolvedScreen, resolvedDesktop);
+        const area = workspaceArea(resolvedScreen, resolvedDesktop);
         const parts = [
             clampLayoutIndex(layoutIndex),
             zoneIndex,
@@ -450,7 +491,7 @@ Item {
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
         const zonePadding = layout.padding || 0;
-        const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
+        const area = workspaceArea(screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
         const zoneX = area.x + ((zone.x / 100) * (area.width - zonePadding)) + zonePadding;
         const zoneY = area.y + ((zone.y / 100) * (area.height - zonePadding)) + zonePadding;
         const zoneWidth = ((zone.width / 100) * (area.width - zonePadding)) - zonePadding;
@@ -510,6 +551,9 @@ Item {
 
     function matchZone(client) {
         if (!checkFilter(client))
+            return -1;
+
+        if (!workspaceGeometryReady(clientOutput(client)))
             return -1;
 
         refreshClientAreaForClient(client);
@@ -585,6 +629,11 @@ Item {
         if (!checkFilter(client))
             return ;
 
+        if (!canMutateWindowGeometry(client)) {
+            Utils.log("Skipping move while output geometry is not stable");
+            return ;
+        }
+
         Utils.log("Moving client " + client.resourceClass.toString() + " to zone " + zone);
         refreshClientAreaForClient(client);
         // move client to zone
@@ -656,6 +705,11 @@ Item {
     function moveClientToClosestZone(client) {
         if (!checkFilter(client))
             return null;
+
+        if (!canMutateWindowGeometry(client)) {
+            Utils.log("Skipping snap while output geometry is not stable");
+            return null;
+        }
 
         Utils.log("Moving client " + client.resourceClass.toString() + " to closest zone");
         refreshClientAreaForClient(client);
@@ -748,6 +802,11 @@ Item {
     }
 
     function moveAllClientsToClosestZone() {
+        if (!canMutateWindowGeometry(null)) {
+            Utils.log("Skipping snap-all while output geometry is not stable");
+            return 0;
+        }
+
         Utils.log("Moving all clients to closest zone");
         let count = 0;
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
@@ -759,6 +818,22 @@ Item {
         }
         Utils.log("Moved " + count + " clients to closest zone");
         return count;
+    }
+
+    function handleOutputGeometryChanged(reason) {
+        if (disposing)
+            return;
+
+        outputsSettling = true;
+        resizedZoneGeometries = new Object();
+        hideDialogSurface(debugDialog);
+        hideDialogSurface(mainDialog);
+        zoneSelector.expanded = false;
+        zoneSelector.near = false;
+        highlightedZone = -1;
+        refreshClientArea(activeScreen || Workspace.activeScreen);
+        outputSettleTimer.restart();
+        Utils.log("Output geometry changed: " + reason);
     }
 
     function moveClientToNeighbour(client, direction) {
@@ -1102,6 +1177,9 @@ Item {
     }
 
     function connectedResize(client) {
+        if (!canMutateWindowGeometry(client))
+            return false;
+
         const snapshot = client.magnetileResizeSnapshot;
         if (!snapshot || snapshot.zone === undefined || snapshot.zone === -1)
             return false;
@@ -1299,6 +1377,9 @@ Item {
             if (!signalIsCurrent())
                 return;
 
+            if (!canMutateWindowGeometry(client))
+                return;
+
             Utils.log("Interactive move/resize started for client " + client.resourceClass.toString());
             if (client.resizeable && checkFilter(client)) {
                 if (client.move && checkFilter(client)) {
@@ -1409,6 +1490,9 @@ Item {
             if (!signalIsCurrent())
                 return;
 
+            if (!canMutateWindowGeometry(client))
+                return;
+
             Utils.log("Client fullscreen: " + client.resourceClass.toString() + " (fullscreen " + client.fullScreen + ")");
             if (client.fullScreen == true) {
                 recoverClientZone(client, validLayoutIndex(client.layout) ? client.layout : currentLayout, true);
@@ -1459,12 +1543,36 @@ Item {
 
     Component.onDestruction: {
         disposing = true;
-        for (let i = 0; i < Workspace.stackingOrder.length; i++)
-            disconnectSignals(Workspace.stackingOrder[i]);
+        try {
+            for (let i = 0; i < Workspace.stackingOrder.length; i++)
+                disconnectSignals(Workspace.stackingOrder[i]);
+        } catch (error) {
+            Utils.log("Workspace cleanup skipped: " + error);
+        }
 
         hideDialogSurface(debugDialog);
         hideDialogSurface(mainDialog);
         Utils.log("Script disposed");
+    }
+
+    Timer {
+        id: outputSettleTimer
+
+        interval: 1200
+        repeat: false
+        onTriggered: {
+            if (disposing)
+                return;
+
+            outputsSettling = false;
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+            for (let i = 0; i < Workspace.stackingOrder.length; i++) {
+                matchZone(Workspace.stackingOrder[i]);
+                connectSignals(Workspace.stackingOrder[i]);
+            }
+            updateDebugDialog();
+            Utils.log("Output geometry settled");
+        }
     }
 
     PlasmaCore.Dialog {
@@ -1812,6 +1920,18 @@ Item {
 
         }
 
+        function onScreensChanged() {
+            handleOutputGeometryChanged("screens changed");
+        }
+
+        function onVirtualScreenSizeChanged() {
+            handleOutputGeometryChanged("virtual screen size changed");
+        }
+
+        function onVirtualScreenGeometryChanged() {
+            handleOutputGeometryChanged("virtual screen geometry changed");
+        }
+
         function onWindowAdded(client) {
             if (disposing)
                 return;
@@ -1822,6 +1942,9 @@ Item {
             }
 
             connectSignals(client);
+            if (!workspaceGeometryReady(clientOutput(client)))
+                return;
+
             // check if client is in a zone application list
             const resourceClass = clientResourceClass(client);
             config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {

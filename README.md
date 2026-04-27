@@ -678,6 +678,35 @@ Press `Ctrl+Alt+F` again while the window is active, or use any zone shortcut
 such as `Ctrl+Alt+1`. The OSD reports whether free movement is enabled or
 disabled.
 
+### A monitor comes back at the wrong resolution after lock or resume
+
+Magnetile does not control monitor EDID detection, display modes, wallpaper
+assignment, SDDM, or timezone settings. If KDE Display Configuration shows a
+monitor as an unexpected fallback device, such as `Nvidia DP-3-0000`, and KWin
+only exposes a low resolution such as `640x480`, the display stack has likely
+failed to read the monitor's real EDID after lock, sleep, or cable/link churn.
+
+Check the live KScreen state:
+
+```sh
+kscreen-doctor -o
+```
+
+If the affected output only lists the fallback mode, force KDE to re-probe that
+output by disabling and re-enabling it. Replace `DP-3` with the affected output
+name:
+
+```sh
+kscreen-doctor output.DP-3.disable
+sleep 2
+kscreen-doctor output.DP-3.enable
+```
+
+After the monitor redetects correctly, `kscreen-doctor -o` should show the real
+monitor identity and modes again. Magnetile guards against acting while KWin's
+output geometry is changing, but it cannot repair a monitor link that KDE or
+the graphics driver currently reports with bad EDID data.
+
 ### Logs
 
 Follow KWin scripting logs while testing:
