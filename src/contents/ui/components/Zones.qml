@@ -8,29 +8,33 @@ Item {
     property var config
     property int currentLayout
     property int highlightedZone
+    property var highlightedTarget
     property int layoutIndex
+    property var targets: []
+    readonly property color highlightColor: "#00d5ff"
     property alias repeater: repeater
 
     Repeater {
         id: repeater
 
-        model: config.layouts[layoutIndex].zones
+        model: targets
 
         // zone
         Item {
             id: zone
 
-            property int zoneIndex: index
+            property int zoneIndex: modelData.zone
             property int zonePadding: config.layouts[layoutIndex].padding || 0
-            property var renderZones: config.zoneOverlayIndicatorDisplay == 1 ? [config.layouts[layoutIndex].zones[index]] : config.layouts[layoutIndex].zones
-            property int activeIndex: config.zoneOverlayIndicatorDisplay == 1 ? 0 : index
-            property var indicatorPos: (modelData && modelData.indicator && modelData.indicator.position) || "center"
-            property bool active: (highlightedZone == zoneIndex && currentLayout == layoutIndex)
+            property var sourceZone: config.layouts[layoutIndex].zones[zoneIndex] || {}
+            property var renderZones: config.zoneOverlayIndicatorDisplay == 1 ? [sourceZone] : config.layouts[layoutIndex].zones
+            property int activeIndex: config.zoneOverlayIndicatorDisplay == 1 ? 0 : zoneIndex
+            property var indicatorPos: (sourceZone && sourceZone.indicator && sourceZone.indicator.position) || "center"
+            property bool active: ((highlightedTarget && highlightedTarget.id == modelData.id) || (!highlightedTarget && highlightedZone == zoneIndex)) && currentLayout == layoutIndex
 
-            x: ((modelData.x / 100) * (clientArea.width - zonePadding)) + zonePadding
-            y: ((modelData.y / 100) * (clientArea.height - zonePadding)) + zonePadding
-            implicitWidth: ((modelData.width / 100) * (clientArea.width - zonePadding)) - zonePadding
-            implicitHeight: ((modelData.height / 100) * (clientArea.height - zonePadding)) - zonePadding
+            x: modelData.geometry ? modelData.geometry.x - clientArea.x : ((sourceZone.x / 100) * (clientArea.width - zonePadding)) + zonePadding
+            y: modelData.geometry ? modelData.geometry.y - clientArea.y : ((sourceZone.y / 100) * (clientArea.height - zonePadding)) + zonePadding
+            implicitWidth: modelData.geometry ? modelData.geometry.width : ((sourceZone.width / 100) * (clientArea.width - zonePadding)) - zonePadding
+            implicitHeight: modelData.geometry ? modelData.geometry.height : ((sourceZone.height / 100) * (clientArea.height - zonePadding)) - zonePadding
 
             // zone indicator
             Rectangle {
@@ -53,13 +57,13 @@ Item {
                 anchors.horizontalCenter: (indicatorPos === "center" || indicatorPos === "top-center" || indicatorPos === "bottom-center") ? parent.horizontalCenter : undefined
                 anchors.verticalCenter: (indicatorPos === "center" || indicatorPos === "left-center" || indicatorPos === "right-center") ? parent.verticalCenter : undefined
                 // margin
-                anchors.leftMargin: (modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.left) || 0
-                anchors.rightMargin: (modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.right) || 0
-                anchors.topMargin: (modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.top) || 0
-                anchors.bottomMargin: (modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.bottom) || 0
+                anchors.leftMargin: (sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.left) || 0
+                anchors.rightMargin: (sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.right) || 0
+                anchors.topMargin: (sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.top) || 0
+                anchors.bottomMargin: (sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.bottom) || 0
                 // offset
-                anchors.horizontalCenterOffset: ((modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.left) || 0) - ((modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.right) || 0)
-                anchors.verticalCenterOffset: ((modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.top) || 0) - ((modelData && modelData.indicator && modelData.indicator.margin && modelData.indicator.margin.bottom) || 0)
+                anchors.horizontalCenterOffset: ((sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.left) || 0) - ((sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.right) || 0)
+                anchors.verticalCenterOffset: ((sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.top) || 0) - ((sourceZone && sourceZone.indicator && sourceZone.indicator.margin && sourceZone.indicator.margin.bottom) || 0)
 
                 Components.Indicator {
                     zones: renderZones
@@ -92,7 +96,7 @@ Item {
 
                 anchors.fill: parent
                 color: "transparent"
-                border.color: (active) ? modelData.color || colorHelper.accentColor : "transparent"
+                border.color: active ? highlightColor : "transparent"
                 border.width: 3
                 radius: 8
             }
@@ -101,9 +105,9 @@ Item {
             Rectangle {
                 id: zoneBackground
 
-                opacity: (highlightedZone == zoneIndex) ? 0.1 : 0
+                opacity: active ? 0.1 : 0
                 anchors.fill: parent
-                color: modelData.color || colorHelper.accentColor
+                color: highlightColor
                 radius: 8
             }
 

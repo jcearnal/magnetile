@@ -21,17 +21,22 @@ Item {
     property int currentLayout: 0
     property var screenLayouts: new Object()
     property var resizedZoneGeometries: new Object()
+    property var mergedZones: new Object()
     property var resizeDebugInfo: new Object()
     property int highlightedZone: -1
+    property var highlightedTarget: null
+    property var mergePreviewTarget: null
     property var activeScreen: null
     property bool showZoneOverlay: config.zoneOverlayShowWhen == 0
     property int geometryTolerance: 3
     property string signalToken: Math.random().toString() + Date.now().toString()
     property bool disposing: false
+    property bool outputsSettling: false
 
     function resizeDialogToClientArea(dialog) {
-        const width = Math.max(1, Math.round(clientArea.width || Workspace.virtualScreenSize.width || 1));
-        const height = Math.max(1, Math.round(clientArea.height || Workspace.virtualScreenSize.height || 1));
+        const fallbackSize = workspaceVirtualScreenSize();
+        const width = Math.max(1, Math.round(clientArea.width || fallbackSize.width || 1));
+        const height = Math.max(1, Math.round(clientArea.height || fallbackSize.height || 1));
         dialog.setWidth(width);
         dialog.setHeight(height);
     }
@@ -48,6 +53,45 @@ Item {
 
     function outputName(screen) {
         return screen && screen.name ? screen.name : "";
+    }
+
+    function workspaceVirtualScreenSize() {
+        try {
+            const size = Workspace.virtualScreenSize;
+            if (size && isFinite(size.width) && isFinite(size.height))
+                return size;
+
+        } catch (error) {
+            Utils.log("Could not read virtual screen size: " + error, "warning");
+        }
+        return Qt.size(0, 0);
+    }
+
+    function workspaceArea(screen, desktop) {
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        if (!resolvedScreen || !resolvedDesktop)
+            return Qt.rect(0, 0, 0, 0);
+
+        try {
+            const area = Workspace.clientArea(KWin.FullScreenArea, resolvedScreen, resolvedDesktop);
+            if (area && isFinite(area.x) && isFinite(area.y) && isFinite(area.width) && isFinite(area.height))
+                return area;
+
+        } catch (error) {
+            Utils.log("Could not read client area for " + outputName(resolvedScreen) + ": " + error, "warning");
+        }
+        return Qt.rect(0, 0, 0, 0);
+    }
+
+    function workspaceGeometryReady(screen) {
+        const size = workspaceVirtualScreenSize();
+        const area = workspaceArea(screen, Workspace.currentDesktop);
+        return size.width > 0 && size.height > 0 && area.width > 0 && area.height > 0;
+    }
+
+    function canMutateWindowGeometry(client) {
+        return !disposing && !outputsSettling && workspaceGeometryReady(client ? clientOutput(client) : activeScreen || Workspace.activeScreen);
     }
 
     function clampLayoutIndex(layout) {
@@ -95,7 +139,7 @@ Item {
     }
 
     function outputOrientation(screen) {
-        const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
+        const area = workspaceArea(screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
         return area.height > area.width ? "portrait" : "landscape";
     }
 
@@ -254,8 +298,8 @@ Item {
 
     function refreshClientArea(screen) {
         activeScreen = screen || Workspace.activeScreen;
-        clientArea = Workspace.clientArea(KWin.FullScreenArea, activeScreen, Workspace.currentDesktop);
-        displaySize = Workspace.virtualScreenSize;
+        clientArea = workspaceArea(activeScreen, Workspace.currentDesktop);
+        displaySize = workspaceVirtualScreenSize();
         currentLayout = getCurrentLayout();
     }
 
@@ -312,7 +356,7 @@ Item {
     function runtimeZoneKey(layoutIndex, zoneIndex, screen, desktop, activity) {
         const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
         const resolvedDesktop = desktop || Workspace.currentDesktop;
-        const area = Workspace.clientArea(KWin.FullScreenArea, resolvedScreen, resolvedDesktop);
+        const area = workspaceArea(resolvedScreen, resolvedDesktop);
         const parts = [
             clampLayoutIndex(layoutIndex),
             zoneIndex,
@@ -325,6 +369,409 @@ Item {
             activity !== undefined && activity !== null ? activity : ""
         ];
         return parts.join(":");
+    }
+
+    function layoutScopeKey(layoutIndex, screen, desktop, activity) {
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const area = workspaceArea(resolvedScreen, resolvedDesktop);
+        const parts = [
+            clampLayoutIndex(layoutIndex),
+            outputName(resolvedScreen),
+            area.x,
+            area.y,
+            area.width,
+            area.height,
+            resolvedDesktop && resolvedDesktop.id ? resolvedDesktop.id : "",
+            activity !== undefined && activity !== null ? activity : ""
+        ];
+        return parts.join(":");
+    }
+
+    function isArrayValue(value) {
+        return Object.prototype.toString.call(value) === "[object Array]";
+    }
+
+    function normalizeZoneList(layoutIndex, zones) {
+        if (!validLayoutIndex(layoutIndex))
+            return [];
+
+        const input = isArrayValue(zones) ? zones : [zones];
+        const seen = {};
+        const normalized = [];
+        for (let i = 0; i < input.length; i++) {
+            const zone = Number(input[i]);
+            if (!isFinite(zone))
+                continue;
+
+            const index = Math.round(zone);
+            if (!validZoneIndex(layoutIndex, index) || seen[index])
+                continue;
+
+            seen[index] = true;
+            normalized.push(index);
+        }
+        normalized.sort(function(a, b) {
+            return a - b;
+        });
+        return normalized;
+    }
+
+    function mergeIdForZones(zones) {
+        return zones.join(",");
+    }
+
+    function activeMergedZones(layoutIndex, screen, desktop, activity) {
+        const key = layoutScopeKey(layoutIndex, screen, desktop, activity);
+        const merges = mergedZones[key];
+        return isArrayValue(merges) ? merges : [];
+    }
+
+    function storeMergedZones(layoutIndex, screen, desktop, activity, merges) {
+        const key = layoutScopeKey(layoutIndex, screen, desktop, activity);
+        mergedZones[key] = merges;
+        mergedZones = Object.assign({}, mergedZones);
+    }
+
+    function clearMergedZones(layoutIndex, screen, desktop, activity) {
+        const key = layoutScopeKey(layoutIndex, screen, desktop, activity);
+        delete mergedZones[key];
+        mergedZones = Object.assign({}, mergedZones);
+    }
+
+    function clientZones(client) {
+        if (!client)
+            return [];
+
+        if (validLayoutIndex(client.layout)) {
+            const multiZones = normalizeZoneList(client.layout, client.zones);
+            if (multiZones.length > 0)
+                return multiZones;
+
+            if (validZoneIndex(client.layout, client.zone))
+                return [Math.round(Number(client.zone))];
+        }
+        return [];
+    }
+
+    function zonesOverlap(a, b) {
+        const seen = {};
+        for (let i = 0; i < a.length; i++)
+            seen[a[i]] = true;
+
+        for (let i = 0; i < b.length; i++) {
+            if (seen[b[i]])
+                return true;
+
+        }
+        return false;
+    }
+
+    function zonesFormRectangle(layoutIndex, zones) {
+        const normalized = normalizeZoneList(layoutIndex, zones);
+        if (normalized.length <= 1)
+            return true;
+
+        const layout = clampLayoutIndex(layoutIndex);
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        let totalArea = 0;
+        for (let i = 0; i < normalized.length; i++) {
+            const zone = config.layouts[layout].zones[normalized[i]];
+            const zoneLeft = Number(zone.x);
+            const zoneTop = Number(zone.y);
+            const zoneRight = zoneLeft + Number(zone.width);
+            const zoneBottom = zoneTop + Number(zone.height);
+            left = Math.min(left, zoneLeft);
+            top = Math.min(top, zoneTop);
+            right = Math.max(right, zoneRight);
+            bottom = Math.max(bottom, zoneBottom);
+            totalArea += Number(zone.width) * Number(zone.height);
+        }
+
+        const unionArea = (right - left) * (bottom - top);
+        return Math.abs(unionArea - totalArea) <= 0.01;
+    }
+
+    function zonesUnionGeometry(layoutIndex, zones, screen) {
+        const normalized = normalizeZoneList(layoutIndex, zones);
+        if (normalized.length === 0)
+            return null;
+
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        for (let i = 0; i < normalized.length; i++) {
+            const geometry = zoneGeometry(layoutIndex, normalized[i], screen);
+            left = Math.min(left, geometry.x);
+            top = Math.min(top, geometry.y);
+            right = Math.max(right, geometry.x + geometry.width);
+            bottom = Math.max(bottom, geometry.y + geometry.height);
+        }
+
+        if (!isFinite(left) || !isFinite(top) || !isFinite(right) || !isFinite(bottom))
+            return null;
+
+        return roundedRect(left, top, right - left, bottom - top);
+    }
+
+    function configuredZoneForTarget(layoutIndex, zoneIndex) {
+        if (!validZoneIndex(layoutIndex, zoneIndex))
+            return {};
+
+        return config.layouts[clampLayoutIndex(layoutIndex)].zones[zoneIndex] || {};
+    }
+
+    function targetGeometry(target) {
+        if (!target)
+            return null;
+
+        const stored = rectFromStoredGeometry(target.geometry);
+        if (stored)
+            return stored;
+
+        if (target.type === "merge")
+            return zonesUnionGeometry(target.layout, target.zones, target.output || activeScreen || Workspace.activeScreen);
+
+        if (validZoneIndex(target.layout, target.zone))
+            return zoneGeometry(target.layout, target.zone, target.output || activeScreen || Workspace.activeScreen);
+
+        return null;
+    }
+
+    function targetContainsZone(target, zone) {
+        if (!target)
+            return false;
+
+        const zones = normalizeZoneList(target.layout, target.zones !== undefined ? target.zones : target.zone);
+        return zones.indexOf(Math.round(Number(zone))) !== -1;
+    }
+
+    function singleZoneTarget(layoutIndex, zoneIndex, screen, desktop, activity) {
+        if (!validZoneIndex(layoutIndex, zoneIndex))
+            return null;
+
+        const layout = clampLayoutIndex(layoutIndex);
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const zone = config.layouts[layout].zones[zoneIndex];
+        return {
+            "type": "zone",
+            "id": zoneIndex.toString(),
+            "layout": layout,
+            "zone": zoneIndex,
+            "zones": [zoneIndex],
+            "geometry": zoneGeometry(layout, zoneIndex, resolvedScreen),
+            "output": resolvedScreen,
+            "color": zone.color,
+            "label": (zoneIndex + 1).toString()
+        };
+    }
+
+    function effectiveTargetForZone(layoutIndex, zoneIndex, screen, desktop, activity) {
+        const targets = effectiveZoneTargets(layoutIndex, screen, desktop, activity);
+        for (let i = 0; i < targets.length; i++) {
+            if (targetContainsZone(targets[i], zoneIndex))
+                return targets[i];
+
+        }
+        return singleZoneTarget(layoutIndex, zoneIndex, screen, desktop, activity);
+    }
+
+    function mergeTargetFromZones(layoutIndex, zones, screen, desktop, activity) {
+        const layout = clampLayoutIndex(layoutIndex);
+        const normalized = normalizeZoneList(layout, zones);
+        if (normalized.length === 0)
+            return null;
+
+        if (normalized.length === 1)
+            return singleZoneTarget(layout, normalized[0], screen, desktop, activity);
+
+        const geometry = zonesUnionGeometry(layout, normalized, screen);
+        if (!geometry)
+            return null;
+
+        const anchor = normalized[0];
+        const anchorZone = configuredZoneForTarget(layout, anchor);
+        return {
+            "type": "merge",
+            "id": mergeIdForZones(normalized),
+            "layout": layout,
+            "zone": anchor,
+            "zones": normalized,
+            "geometry": geometry,
+            "output": screen || activeScreen || Workspace.activeScreen,
+            "color": anchorZone.color,
+            "label": normalized.map(function(zone) {
+                return zone + 1;
+            }).join("+")
+        };
+    }
+
+    function mergeZones(layoutIndex, zones, screen, desktop, activity) {
+        const layout = clampLayoutIndex(layoutIndex);
+        const normalized = normalizeZoneList(layout, zones);
+        if (normalized.length <= 1)
+            return mergeTargetFromZones(layout, normalized, screen, desktop, activity);
+
+        if (!zonesFormRectangle(layout, normalized)) {
+            Utils.osd("Merged zones must form a rectangle");
+            return null;
+        }
+
+        const target = mergeTargetFromZones(layout, normalized, screen, desktop, activity);
+        if (!target)
+            return null;
+
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const resolvedActivity = activity !== undefined && activity !== null ? activity : Workspace.currentActivity;
+        const current = activeMergedZones(layout, resolvedScreen, resolvedDesktop, resolvedActivity);
+        const next = [];
+        for (let i = 0; i < current.length; i++) {
+            const merge = current[i];
+            const mergeZonesList = normalizeZoneList(layout, merge && merge.zones);
+            if (!zonesOverlap(mergeZonesList, normalized))
+                next.push(merge);
+
+        }
+        next.push({
+            "id": target.id,
+            "zones": normalized,
+            "geometry": target.geometry,
+            "color": target.color,
+            "label": target.label
+        });
+        storeMergedZones(layout, resolvedScreen, resolvedDesktop, resolvedActivity, next);
+        return target;
+    }
+
+    function mergeTargetNearPoint(layoutIndex, screen, desktop, activity, point, baseTarget) {
+        if (!baseTarget)
+            return null;
+
+        const layout = clampLayoutIndex(layoutIndex);
+        const threshold = Math.max(24, (config.layouts[layout].padding || 0) + 18);
+        const baseGeometry = targetGeometry(baseTarget);
+        if (!baseGeometry)
+            return null;
+
+        const selected = normalizeZoneList(layout, baseTarget.zones);
+        const targets = effectiveZoneTargets(layout, screen, desktop, activity);
+        const baseEdges = rectEdges(baseGeometry);
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (!target || target.id === baseTarget.id)
+                continue;
+
+            const geometry = targetGeometry(target);
+            if (!geometry)
+                continue;
+
+            const edges = rectEdges(geometry);
+            const verticalOverlap = rangesOverlap(baseEdges.top, baseEdges.bottom, edges.top, edges.bottom, 1);
+            const horizontalOverlap = rangesOverlap(baseEdges.left, baseEdges.right, edges.left, edges.right, 1);
+            const nearBaseRight = Math.abs(point.x - baseEdges.right) <= threshold && Math.abs(edges.left - baseEdges.right) <= threshold && verticalOverlap;
+            const nearBaseLeft = Math.abs(point.x - baseEdges.left) <= threshold && Math.abs(edges.right - baseEdges.left) <= threshold && verticalOverlap;
+            const nearBaseBottom = Math.abs(point.y - baseEdges.bottom) <= threshold && Math.abs(edges.top - baseEdges.bottom) <= threshold && horizontalOverlap;
+            const nearBaseTop = Math.abs(point.y - baseEdges.top) <= threshold && Math.abs(edges.bottom - baseEdges.top) <= threshold && horizontalOverlap;
+            if (!nearBaseRight && !nearBaseLeft && !nearBaseBottom && !nearBaseTop)
+                continue;
+
+            const candidate = normalizeZoneList(layout, selected.concat(normalizeZoneList(layout, target.zones)));
+            if (candidate.length > selected.length && zonesFormRectangle(layout, candidate))
+                return mergeTargetFromZones(layout, candidate, screen, desktop, activity);
+
+        }
+        return null;
+    }
+
+    function resolveDropTarget(screen) {
+        if (!highlightedTarget)
+            return null;
+
+        const candidate = mergeTargetNearPoint(currentLayout, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos, highlightedTarget);
+        if (candidate && candidate.type === "merge")
+            return mergeZones(currentLayout, candidate.zones, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
+
+        return highlightedTarget;
+    }
+
+    function effectiveZoneTargets(layoutIndex, screen, desktop, activity) {
+        if (!validLayoutIndex(layoutIndex))
+            return [];
+
+        const layout = clampLayoutIndex(layoutIndex);
+        const resolvedScreen = screen || activeScreen || Workspace.activeScreen;
+        const resolvedDesktop = desktop || Workspace.currentDesktop;
+        const resolvedActivity = activity !== undefined && activity !== null ? activity : Workspace.currentActivity;
+        const hiddenZones = {};
+        const targets = [];
+        const merges = activeMergedZones(layout, resolvedScreen, resolvedDesktop, resolvedActivity);
+
+        for (let i = 0; i < merges.length; i++) {
+            const merge = merges[i] || {};
+            const zones = normalizeZoneList(layout, merge.zones);
+            if (zones.length === 0)
+                continue;
+
+            const geometry = rectFromStoredGeometry(merge.geometry) || zonesUnionGeometry(layout, zones, resolvedScreen);
+            if (!geometry)
+                continue;
+
+            const anchor = zones[0];
+            const anchorZone = configuredZoneForTarget(layout, anchor);
+            for (let zoneIndex = 0; zoneIndex < zones.length; zoneIndex++)
+                hiddenZones[zones[zoneIndex]] = true;
+
+            targets.push({
+                "type": "merge",
+                "id": merge.id || mergeIdForZones(zones),
+                "layout": layout,
+                "zone": anchor,
+                "zones": zones,
+                "geometry": geometry,
+                "output": resolvedScreen,
+                "color": merge.color || anchorZone.color,
+                "label": merge.label || zones.map(function(zone) {
+                    return zone + 1;
+                }).join("+")
+            });
+        }
+
+        const zones = config.layouts[layout].zones;
+        for (let i = 0; i < zones.length; i++) {
+            if (hiddenZones[i])
+                continue;
+
+            const geometry = zoneGeometry(layout, i, resolvedScreen);
+            targets.push({
+                "type": "zone",
+                "id": i.toString(),
+                "layout": layout,
+                "zone": i,
+                "zones": [i],
+                "geometry": geometry,
+                "output": resolvedScreen,
+                "color": zones[i].color,
+                "label": (i + 1).toString()
+            });
+        }
+
+        targets.sort(function(a, b) {
+            return a.zone - b.zone;
+        });
+        return targets;
+    }
+
+    function clearClientTargetProperties(client) {
+        if (!client)
+            return;
+
+        client.zones = [];
+        client.magnetileMergedZone = "";
     }
 
     function rectFromStoredGeometry(geometry) {
@@ -371,6 +818,7 @@ Item {
         let count = 0;
 
         clearRuntimeLayoutGeometry(layout, output, desktop, activity);
+        clearMergedZones(layout, output, desktop, activity);
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
             const client = Workspace.stackingOrder[i];
             if (!checkFilter(client) || client.minimized)
@@ -395,6 +843,7 @@ Item {
             client.magnetileFreeMove = false;
             client.magnetileTiled = true;
             client.magnetileResizeSnapshot = null;
+            clearClientTargetProperties(client);
             count++;
         }
 
@@ -450,7 +899,7 @@ Item {
         const layout = config.layouts[clampLayoutIndex(layoutIndex)];
         const zone = layout.zones[zoneIndex];
         const zonePadding = layout.padding || 0;
-        const area = Workspace.clientArea(KWin.FullScreenArea, screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
+        const area = workspaceArea(screen || activeScreen || Workspace.activeScreen, Workspace.currentDesktop);
         const zoneX = area.x + ((zone.x / 100) * (area.width - zonePadding)) + zonePadding;
         const zoneY = area.y + ((zone.y / 100) * (area.height - zonePadding)) + zonePadding;
         const zoneWidth = ((zone.width / 100) * (area.width - zonePadding)) - zonePadding;
@@ -463,6 +912,22 @@ Item {
             return -1;
 
         const layoutIndex = clampLayoutIndex(layout);
+        const targets = effectiveZoneTargets(layoutIndex, clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity);
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            const geometry = targetGeometry(target);
+            if (geometry && rectsClose(client.frameGeometry, geometry)) {
+                client.zone = target.zone;
+                client.layout = layoutIndex;
+                client.desktop = Workspace.currentDesktop;
+                client.activity = Workspace.currentActivity;
+                client.magnetileTiled = true;
+                client.zones = normalizeZoneList(layoutIndex, target.zones);
+                client.magnetileMergedZone = target.type === "merge" ? target.id : "";
+                return target.zone;
+            }
+        }
+
         const zones = config.layouts[layoutIndex].zones;
         // loop through zones and compare with the geometries of the client
         for (let i = 0; i < zones.length; i++) {
@@ -474,6 +939,8 @@ Item {
                 client.desktop = Workspace.currentDesktop;
                 client.activity = Workspace.currentActivity;
                 client.magnetileTiled = true;
+                client.zones = [i];
+                client.magnetileMergedZone = "";
                 return i;
             }
         }
@@ -482,6 +949,9 @@ Item {
 
     function matchResizeZoneInLayout(client, layout) {
         if (!checkFilter(client))
+            return -1;
+
+        if (clientZones(client).length > 1)
             return -1;
 
         const layoutIndex = clampLayoutIndex(layout);
@@ -502,6 +972,8 @@ Item {
                 client.desktop = Workspace.currentDesktop;
                 client.activity = Workspace.currentActivity;
                 client.magnetileTiled = true;
+                client.zones = [i];
+                client.magnetileMergedZone = "";
                 return i;
             }
         }
@@ -510,6 +982,9 @@ Item {
 
     function matchZone(client) {
         if (!checkFilter(client))
+            return -1;
+
+        if (!workspaceGeometryReady(clientOutput(client)))
             return -1;
 
         refreshClientAreaForClient(client);
@@ -551,7 +1026,7 @@ Item {
                 continue;
 
             recoverClientZone(client, layout, true);
-            if (client.zone === zone && client.layout === layout && windows.indexOf(client) === -1)
+            if (client.layout === layout && clientZones(client).indexOf(zone) !== -1 && windows.indexOf(client) === -1)
                 windows.push(client);
 
         }
@@ -585,6 +1060,11 @@ Item {
         if (!checkFilter(client))
             return ;
 
+        if (!canMutateWindowGeometry(client)) {
+            Utils.log("Skipping move while output geometry is not stable");
+            return ;
+        }
+
         Utils.log("Moving client " + client.resourceClass.toString() + " to zone " + zone);
         refreshClientAreaForClient(client);
         // move client to zone
@@ -592,15 +1072,32 @@ Item {
             if (zone < 0 || zone >= config.layouts[currentLayout].zones.length)
                 return;
 
-            const newGeometry = zoneGeometry(currentLayout, zone, clientOutput(client));
-            Utils.log("Moving client " + client.resourceClass.toString() + " to zone " + zone + " with geometry " + JSON.stringify(newGeometry));
-            saveClientProperties(client, zone);
-            client.magnetileFreeMove = false;
-            client.setMaximize(false, false);
-            client.frameGeometry = newGeometry;
+            moveClientToTarget(client, effectiveTargetForZone(currentLayout, zone, clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity));
         } else {
             saveClientProperties(client, zone);
         }
+    }
+
+    function moveClientToTarget(client, target) {
+        if (!checkFilter(client) || !target)
+            return;
+
+        if (!canMutateWindowGeometry(client)) {
+            Utils.log("Skipping target move while output geometry is not stable");
+            return;
+        }
+
+        const geometry = targetGeometry(target);
+        if (!geometry)
+            return;
+
+        refreshClientAreaForClient(client);
+        Utils.log("Moving client " + client.resourceClass.toString() + " to target " + target.id + " with geometry " + JSON.stringify(geometry));
+        moveClientsOverlappingTarget(client, target, geometry);
+        saveClientTargetProperties(client, target);
+        client.magnetileFreeMove = false;
+        client.setMaximize(false, false);
+        client.frameGeometry = geometry;
     }
 
     function freeClient(client) {
@@ -614,6 +1111,7 @@ Item {
         client.magnetileFreeMove = true;
         client.magnetileTiled = false;
         client.magnetileResizeSnapshot = null;
+        clearClientTargetProperties(client);
     }
 
     function toggleFreeClient(client) {
@@ -651,11 +1149,61 @@ Item {
         client.desktop = Workspace.currentDesktop;
         client.activity = Workspace.currentActivity;
         client.magnetileTiled = zone !== -1;
+        if (zone === -1)
+            clearClientTargetProperties(client);
+        else {
+            client.zones = [zone];
+            client.magnetileMergedZone = "";
+        }
+    }
+
+    function saveClientTargetProperties(client, target) {
+        if (!client || !target)
+            return;
+
+        saveClientProperties(client, target.zone);
+        client.layout = target.layout;
+        client.zones = normalizeZoneList(target.layout, target.zones);
+        client.magnetileMergedZone = target.type === "merge" ? target.id : "";
+        client.magnetileTiled = true;
+    }
+
+    function moveClientsOverlappingTarget(activeClient, target, geometry) {
+        const targetZones = normalizeZoneList(target.layout, target.zones);
+        if (targetZones.length === 0 || !geometry)
+            return;
+
+        const output = target.output || clientOutput(activeClient);
+        for (let i = 0; i < Workspace.stackingOrder.length; i++) {
+            const client = Workspace.stackingOrder[i];
+            if (client === activeClient || !checkFilter(client) || client.minimized)
+                continue;
+
+            if (!clientInCurrentScope(client, output, Workspace.currentDesktop, Workspace.currentActivity))
+                continue;
+
+            if (client.layout !== target.layout)
+                continue;
+
+            if (!zonesOverlap(clientZones(client), targetZones))
+                continue;
+
+            saveClientTargetProperties(client, target);
+            client.magnetileFreeMove = false;
+            client.setMaximize(false, false);
+            client.frameGeometry = geometry;
+            client.magnetileResizeSnapshot = null;
+        }
     }
 
     function moveClientToClosestZone(client) {
         if (!checkFilter(client))
             return null;
+
+        if (!canMutateWindowGeometry(client)) {
+            Utils.log("Skipping snap while output geometry is not stable");
+            return null;
+        }
 
         Utils.log("Moving client " + client.resourceClass.toString() + " to closest zone");
         refreshClientAreaForClient(client);
@@ -663,25 +1211,29 @@ Item {
             "x": client.frameGeometry.x + (client.frameGeometry.width / 2),
             "y": client.frameGeometry.y + (client.frameGeometry.height / 2)
         };
-        const zones = config.layouts[currentLayout].zones;
-        let closestZone = null;
+        const targets = effectiveZoneTargets(currentLayout, clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity);
+        let closestTarget = null;
         let closestDistance = Infinity;
-        for (let i = 0; i < zones.length; i++) {
-            const zone = zones[i];
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            const geometry = targetGeometry(target);
+            if (!geometry)
+                continue;
+
             const zoneCenter = {
-                "x": (zone.x + zone.width / 2) / 100 * clientArea.width + clientArea.x,
-                "y": (zone.y + zone.height / 2) / 100 * clientArea.height + clientArea.y
+                "x": geometry.x + geometry.width / 2,
+                "y": geometry.y + geometry.height / 2
             };
             const distance = Math.sqrt(Math.pow(centerPointOfClient.x - zoneCenter.x, 2) + Math.pow(centerPointOfClient.y - zoneCenter.y, 2));
             if (distance < closestDistance) {
-                closestZone = i;
+                closestTarget = target;
                 closestDistance = distance;
             }
         }
-        if (client.zone !== closestZone || client.layout !== currentLayout)
-            moveClientToZone(client, closestZone);
+        if (closestTarget && (client.zone !== closestTarget.zone || client.layout !== currentLayout || client.magnetileMergedZone !== (closestTarget.type === "merge" ? closestTarget.id : "")))
+            moveClientToTarget(client, closestTarget);
 
-        return closestZone;
+        return closestTarget ? closestTarget.zone : null;
     }
 
     function findClientSpecularZone(client, isVerticalAxis = false) {
@@ -748,6 +1300,11 @@ Item {
     }
 
     function moveAllClientsToClosestZone() {
+        if (!canMutateWindowGeometry(null)) {
+            Utils.log("Skipping snap-all while output geometry is not stable");
+            return 0;
+        }
+
         Utils.log("Moving all clients to closest zone");
         let count = 0;
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
@@ -759,6 +1316,25 @@ Item {
         }
         Utils.log("Moved " + count + " clients to closest zone");
         return count;
+    }
+
+    function handleOutputGeometryChanged(reason) {
+        if (disposing)
+            return;
+
+        outputsSettling = true;
+        resizedZoneGeometries = new Object();
+        mergedZones = new Object();
+        hideDialogSurface(debugDialog);
+        hideDialogSurface(mainDialog);
+        zoneSelector.expanded = false;
+        zoneSelector.near = false;
+        highlightedZone = -1;
+        highlightedTarget = null;
+        mergePreviewTarget = null;
+        refreshClientArea(activeScreen || Workspace.activeScreen);
+        outputSettleTimer.restart();
+        Utils.log("Output geometry changed: " + reason);
     }
 
     function moveClientToNeighbour(client, direction) {
@@ -1102,6 +1678,9 @@ Item {
     }
 
     function connectedResize(client) {
+        if (!canMutateWindowGeometry(client))
+            return false;
+
         const snapshot = client.magnetileResizeSnapshot;
         if (!snapshot || snapshot.zone === undefined || snapshot.zone === -1)
             return false;
@@ -1299,6 +1878,9 @@ Item {
             if (!signalIsCurrent())
                 return;
 
+            if (!canMutateWindowGeometry(client))
+                return;
+
             Utils.log("Interactive move/resize started for client " + client.resourceClass.toString());
             if (client.resizeable && checkFilter(client)) {
                 if (client.move && checkFilter(client)) {
@@ -1328,6 +1910,7 @@ Item {
                     moved = false;
                     resizing = false;
                     freeMoving = client.magnetileFreeMove === true;
+                    highlightedTarget = null;
                     Utils.log("Move start " + client.resourceClass.toString());
                     if (freeMoving)
                         mainDialog.hide();
@@ -1381,7 +1964,11 @@ Item {
                     if (freeMoving) {
                         freeClient(client);
                     } else if (mainDialog.visible) {
-                        moveClientToZone(client, highlightedZone);
+                        const target = resolveDropTarget(clientOutput(client));
+                        if (target)
+                            moveClientToTarget(client, target);
+                        else
+                            moveClientToZone(client, highlightedZone);
                     } else {
                         saveClientProperties(client, -1);
                     }
@@ -1409,6 +1996,9 @@ Item {
             if (!signalIsCurrent())
                 return;
 
+            if (!canMutateWindowGeometry(client))
+                return;
+
             Utils.log("Client fullscreen: " + client.resourceClass.toString() + " (fullscreen " + client.fullScreen + ")");
             if (client.fullScreen == true) {
                 recoverClientZone(client, validLayoutIndex(client.layout) ? client.layout : currentLayout, true);
@@ -1419,10 +2009,13 @@ Item {
                     const zone = layout.zones[client.zone];
                     Utils.log("Layout.fullscreen: " + layout.fullscreen + " Zone.fullscreen: " + zone.fullscreen);
                     if (layout.fullscreen == true || zone.fullscreen == true) {
-                        const newGeometry = zoneGeometry(client.layout, client.zone, clientOutput(client));
-                        Utils.log("Fullscreen client " + client.resourceClass.toString() + " to zone " + client.zone + " with geometry " + JSON.stringify(newGeometry));
-                        client.setMaximize(false, false);
-                        client.frameGeometry = newGeometry;
+                        const target = clientZones(client).length > 1 ? mergeTargetFromZones(client.layout, clientZones(client), clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity) : effectiveTargetForZone(client.layout, client.zone, clientOutput(client), Workspace.currentDesktop, Workspace.currentActivity);
+                        const newGeometry = targetGeometry(target);
+                        if (newGeometry) {
+                            Utils.log("Fullscreen client " + client.resourceClass.toString() + " to zone " + client.zone + " with geometry " + JSON.stringify(newGeometry));
+                            client.setMaximize(false, false);
+                            client.frameGeometry = newGeometry;
+                        }
                     }
                 }
             }
@@ -1459,12 +2052,36 @@ Item {
 
     Component.onDestruction: {
         disposing = true;
-        for (let i = 0; i < Workspace.stackingOrder.length; i++)
-            disconnectSignals(Workspace.stackingOrder[i]);
+        try {
+            for (let i = 0; i < Workspace.stackingOrder.length; i++)
+                disconnectSignals(Workspace.stackingOrder[i]);
+        } catch (error) {
+            Utils.log("Workspace cleanup skipped: " + error);
+        }
 
         hideDialogSurface(debugDialog);
         hideDialogSurface(mainDialog);
         Utils.log("Script disposed");
+    }
+
+    Timer {
+        id: outputSettleTimer
+
+        interval: 1200
+        repeat: false
+        onTriggered: {
+            if (disposing)
+                return;
+
+            outputsSettling = false;
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+            for (let i = 0; i < Workspace.stackingOrder.length; i++) {
+                matchZone(Workspace.stackingOrder[i]);
+                connectSignals(Workspace.stackingOrder[i]);
+            }
+            updateDebugDialog();
+            Utils.log("Output geometry settled");
+        }
     }
 
     PlasmaCore.Dialog {
@@ -1509,6 +2126,8 @@ Item {
             zoneSelector.expanded = false;
             zoneSelector.near = false;
             highlightedZone = -1;
+            highlightedTarget = null;
+            mergePreviewTarget = null;
             showZoneOverlay = config.zoneOverlayShowWhen == 0;
         }
 
@@ -1526,13 +2145,26 @@ Item {
         width: 1
         height: 1
 
-        Item {
-            id: mainItem
+            Item {
+                id: mainItem
 
-            property alias repeaterLayout: repeaterLayout
+                property alias repeaterLayout: repeaterLayout
+                property var targetsByLayout: []
 
-            width: mainDialog.width
-            height: mainDialog.height
+                width: mainDialog.width
+                height: mainDialog.height
+
+                Components.ColorHelper {
+                    id: mainColorHelper
+                }
+
+                function refreshTargets() {
+                    const nextTargets = [];
+                    for (let i = 0; i < config.layouts.length; i++)
+                        nextTargets.push(root.effectiveZoneTargets(i, root.activeScreen));
+
+                    targetsByLayout = nextTargets;
+                }
 
             // main polling timer
             Timer {
@@ -1545,13 +2177,18 @@ Item {
                 onTriggered: {
                     refreshClientArea();
                     resizeDialogToClientArea(mainDialog);
+                    mainItem.refreshTargets();
                     let hoveringZone = -1;
+                    let hoveringTarget = null;
                     // zone overlay
                     const currentZones = repeaterLayout.itemAt(currentLayout);
                     if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded && currentZones)
-                        currentZones.repeater.model.forEach((zone, zoneIndex) => {
-                        if (Utils.isHovering(currentZones.repeater.itemAt(zoneIndex).children[config.zoneOverlayHighlightTarget]))
-                            hoveringZone = zoneIndex;
+                        currentZones.repeater.model.forEach((target, targetIndex) => {
+                        const targetItem = currentZones.repeater.itemAt(targetIndex);
+                        if (targetItem && Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, target.geometry)) {
+                            hoveringZone = target.zone;
+                            hoveringTarget = target;
+                        }
 
                     });
 
@@ -1561,12 +2198,13 @@ Item {
                             zoneSelector.repeater.model.forEach((layout, layoutIndex) => {
                                 const layoutItem = zoneSelector.repeater.itemAt(layoutIndex);
                                 layout.zones.forEach((zone, zoneIndex) => {
-                                    const zoneItem = layoutItem.children[zoneIndex];
-                                    if (Utils.isHovering(zoneItem)) {
-                                        hoveringZone = zoneIndex;
-                                        setCurrentLayout(layoutIndex);
-                                    }
-                                });
+	                                    const zoneItem = layoutItem.children[zoneIndex];
+	                                    if (Utils.isHovering(zoneItem)) {
+	                                        hoveringZone = zoneIndex;
+	                                        hoveringTarget = singleZoneTarget(layoutIndex, zoneIndex, activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
+	                                        setCurrentLayout(layoutIndex);
+	                                    }
+	                                });
                             });
                         }
                         // set zoneSelector expansion state
@@ -1581,11 +2219,15 @@ Item {
                         if (Workspace.cursorPos.x <= clientArea.x + triggerDistance || Workspace.cursorPos.x >= clientArea.x + clientArea.width - triggerDistance || Workspace.cursorPos.y <= clientArea.y + triggerDistance || Workspace.cursorPos.y >= clientArea.y + clientArea.height - triggerDistance) {
                             const padding = config.layouts[currentLayout].padding || 0;
                             const halfPadding = padding / 2;
-                            config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {
-                                const geometry = zoneGeometry(currentLayout, zoneIndex, activeScreen);
-                                let expandedZoneGeometry = {
-                                    "x": geometry.x - padding / 2,
-                                    "y": geometry.y - padding / 2,
+	                            const targets = effectiveZoneTargets(currentLayout, activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
+	                            targets.forEach((target) => {
+	                                const geometry = targetGeometry(target);
+	                                if (!geometry)
+	                                    return;
+
+	                                let expandedZoneGeometry = {
+	                                    "x": geometry.x - padding / 2,
+	                                    "y": geometry.y - padding / 2,
                                     "width": geometry.width + padding,
                                     "height": geometry.height + padding
                                 };
@@ -1607,20 +2249,24 @@ Item {
                                 if (expandedZoneGeometry.y + expandedZoneGeometry.height >= clientArea.y + clientArea.height - halfPadding)
                                     expandedZoneGeometry.height += halfPadding;
 
-                                // check if cursor is inside the zone geometry
-                                if (Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, expandedZoneGeometry))
-                                    hoveringZone = zoneIndex;
+	                                // check if cursor is inside the zone geometry
+	                                if (Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, expandedZoneGeometry)) {
+	                                    hoveringZone = target.zone;
+	                                    hoveringTarget = target;
+	                                }
 
-                            });
-                        }
-                    }
+	                            });
+	                        }
+	                    }
                     // if hovering zone changed from the last frame
-                    if (hoveringZone != highlightedZone) {
+                    if (hoveringZone != highlightedZone || (hoveringTarget && highlightedTarget && hoveringTarget.id != highlightedTarget.id) || (hoveringTarget && !highlightedTarget) || (!hoveringTarget && highlightedTarget)) {
                         Utils.log("Highlighting zone " + hoveringZone + " in layout " + currentLayout);
                         highlightedZone = hoveringZone;
+                        highlightedTarget = hoveringTarget;
                     }
-                }
-            }
+                    mergePreviewTarget = mergeTargetNearPoint(currentLayout, activeScreen || Workspace.activeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos, highlightedTarget);
+		                }
+		            }
 
             Item {
                 x: 0
@@ -1645,7 +2291,9 @@ Item {
                         config: root.config
                         currentLayout: root.currentLayout
                         highlightedZone: root.highlightedZone
+                        highlightedTarget: root.highlightedTarget
                         layoutIndex: index
+                        targets: mainItem.targetsByLayout[index] || []
                         visible: index == root.currentLayout
                     }
 
@@ -1657,6 +2305,52 @@ Item {
                     config: root.config
                     currentLayout: root.currentLayout
                     highlightedZone: root.highlightedZone
+                }
+
+                Rectangle {
+                    id: mergePreview
+
+                    property var geometry: root.mergePreviewTarget ? root.targetGeometry(root.mergePreviewTarget) : null
+                    readonly property color mergeColor: "#00d5ff"
+
+                    visible: geometry !== null
+                    x: geometry ? geometry.x - clientArea.x : 0
+                    y: geometry ? geometry.y - clientArea.y : 0
+                    width: geometry ? geometry.width : 0
+                    height: geometry ? geometry.height : 0
+                    color: "transparent"
+                    border.color: mergeColor
+                    border.width: 8
+                    radius: 8
+                    z: 100
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: mergePreview.mergeColor
+                        opacity: 0.2
+                        radius: parent.radius
+                    }
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.topMargin: 14
+                        width: mergePreviewLabel.implicitWidth + 28
+                        height: mergePreviewLabel.implicitHeight + 14
+                        radius: 7
+                        color: mainColorHelper.backgroundColor
+                        border.color: mergePreview.mergeColor
+                        border.width: 2
+
+                        PlasmaComponents.Label {
+                            id: mergePreviewLabel
+
+                            anchors.centerIn: parent
+                            text: root.mergePreviewTarget ? "Merge zones " + root.mergePreviewTarget.label : ""
+                            color: mainColorHelper.textColor
+                            font.bold: true
+                        }
+                    }
                 }
 
             }
@@ -1812,6 +2506,18 @@ Item {
 
         }
 
+        function onScreensChanged() {
+            handleOutputGeometryChanged("screens changed");
+        }
+
+        function onVirtualScreenSizeChanged() {
+            handleOutputGeometryChanged("virtual screen size changed");
+        }
+
+        function onVirtualScreenGeometryChanged() {
+            handleOutputGeometryChanged("virtual screen geometry changed");
+        }
+
         function onWindowAdded(client) {
             if (disposing)
                 return;
@@ -1822,6 +2528,9 @@ Item {
             }
 
             connectSignals(client);
+            if (!workspaceGeometryReady(clientOutput(client)))
+                return;
+
             // check if client is in a zone application list
             const resourceClass = clientResourceClass(client);
             config.layouts[currentLayout].zones.forEach((zone, zoneIndex) => {

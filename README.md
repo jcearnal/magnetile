@@ -67,6 +67,9 @@ Compared with the original KZones base, Magnetile adds:
 - Documentation for the current architecture, schema choices, local testing,
   and known KWin scripted-config limitations.
 
+See `PROJECT_DESIGN.md` for the future-session handoff, including the phased
+runtime merged-zones plan for multi-zone snapping.
+
 ## Features
 
 ### Magnetile-Specific Features
@@ -148,6 +151,17 @@ the selector, or per-monitor defaults.
 
 Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
+Drop a dragged window near the shared edge between adjacent zones to create a
+temporary merged zone. Magnetile shows a larger highlighted preview when the
+drop position will span multiple zones. Dropping in the middle of a zone keeps
+normal single-zone snapping.
+
+If another tiled window already occupies one of the zones that becomes part of
+the merge, Magnetile expands that window to the same merged target instead of
+leaving it underneath or marking it floating.
+
+Zone highlights and merge previews use a fixed cyan indicator for now so the
+merge state stands apart from theme-derived overlay colors.
 
 ![](./media/shortcuts.gif)
 
@@ -677,6 +691,35 @@ tab.
 Press `Ctrl+Alt+F` again while the window is active, or use any zone shortcut
 such as `Ctrl+Alt+1`. The OSD reports whether free movement is enabled or
 disabled.
+
+### A monitor comes back at the wrong resolution after lock or resume
+
+Magnetile does not control monitor EDID detection, display modes, wallpaper
+assignment, SDDM, or timezone settings. If KDE Display Configuration shows a
+monitor as an unexpected fallback device, such as `Nvidia DP-3-0000`, and KWin
+only exposes a low resolution such as `640x480`, the display stack has likely
+failed to read the monitor's real EDID after lock, sleep, or cable/link churn.
+
+Check the live KScreen state:
+
+```sh
+kscreen-doctor -o
+```
+
+If the affected output only lists the fallback mode, force KDE to re-probe that
+output by disabling and re-enabling it. Replace `DP-3` with the affected output
+name:
+
+```sh
+kscreen-doctor output.DP-3.disable
+sleep 2
+kscreen-doctor output.DP-3.enable
+```
+
+After the monitor redetects correctly, `kscreen-doctor -o` should show the real
+monitor identity and modes again. Magnetile guards against acting while KWin's
+output geometry is changing, but it cannot repair a monitor link that KDE or
+the graphics driver currently reports with bad EDID data.
 
 ### Logs
 
