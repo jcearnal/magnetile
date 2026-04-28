@@ -4,7 +4,8 @@
   <img src="./media/multi-monitor-transparent.png" alt="Magnetile multi-monitor layout preview">
 </p>
 
-KDE Plasma 6.4+ KWin script for snapping windows into zones with connected tile resizing.
+KDE Plasma 6.4+ KWin script for snapping windows into zones with connected
+tile resizing and runtime merged zones.
 
 [![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/badge/AUR-kwin--scripts--magnetile-1793D1?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile) [![Layout Editor](https://img.shields.io/badge/Layout%20Editor-GitHub%20Pages-00856f)](https://jcearnal.github.io/magnetile/)
 
@@ -12,6 +13,16 @@ Magnetile is a GPL-3.0 derivative of KZones. It keeps the core FancyZones-style
 zone workflow that made KZones useful, then extends it for a Wayland-only KDE
 Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
 visual layout editor helper.
+
+## What's New In 0.2.0
+
+Magnetile 0.2.0 adds runtime merged zones. While dragging a window, drop near
+the shared edge between adjacent zones to snap across both zones instead of
+choosing only one. Magnetile highlights the larger merged target before release,
+then keeps the merged area active until the layout is reset with `Ctrl+Alt+R`.
+
+Existing tiled windows in the affected zones expand to the same merged target,
+so a newly merged area does not leave older windows hidden underneath.
 
 Development of the Magnetile-specific changes is AI-assisted. Human review,
 testing, packaging, and licensing responsibility remain with the Magnetile
@@ -52,6 +63,9 @@ Compared with the original KZones base, Magnetile adds:
 - Fluid connected resizing: adjacent tiled windows resize while a snapped
   window is manually resized, and later snaps can follow the resized runtime
   grid.
+- Runtime merged zones: drag near a shared zone edge to temporarily snap across
+  adjacent zones, with an expanded preview and coherent handling for existing
+  windows in the merged area.
 - KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
 - Resolution-independent geometry fixes for multi-monitor layouts, including
   outputs that do not start at `x=0, y=0`.
