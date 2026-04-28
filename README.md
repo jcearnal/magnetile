@@ -87,6 +87,24 @@ grid until the script reloads or the configuration changes.
 
 Recorded on 5120x1440.
 
+#### Runtime Merged Zones
+
+Drop a dragged window near the shared edge between adjacent zones to create a
+temporary merged zone. Magnetile shows a larger highlighted preview when the
+drop position will span multiple zones. Dropping in the middle of a zone keeps
+normal single-zone snapping.
+
+Runtime merges are scoped to the current output, desktop, activity, and layout.
+The original member zones stop acting as independent snap targets until the
+current layout is reset with `Ctrl+Alt+R`.
+
+If another tiled window already occupies one of the zones that becomes part of
+the merge, Magnetile expands that window to the same merged target instead of
+leaving it underneath or marking it floating.
+
+Zone highlights and merge previews use a fixed cyan indicator for now so the
+merge state stands apart from theme-derived overlay colors.
+
 #### Free Movement
 
 Press `Ctrl+Alt+F` to toggle free movement for the active window. If you press
@@ -151,17 +169,6 @@ the selector, or per-monitor defaults.
 
 Shortcut actions cover moving windows to zones, switching layouts, moving to
 neighboring zones, cycling windows in a zone, and snapping all visible windows.
-Drop a dragged window near the shared edge between adjacent zones to create a
-temporary merged zone. Magnetile shows a larger highlighted preview when the
-drop position will span multiple zones. Dropping in the middle of a zone keeps
-normal single-zone snapping.
-
-If another tiled window already occupies one of the zones that becomes part of
-the merge, Magnetile expands that window to the same merged target instead of
-leaving it underneath or marking it floating.
-
-Zone highlights and merge previews use a fixed cyan indicator for now so the
-merge state stands apart from theme-derived overlay colors.
 
 ![](./media/shortcuts.gif)
 
@@ -232,7 +239,9 @@ Open the settings from:
 3. Switch layouts with `Ctrl+Alt+Shift+1..9` or cycle with `Ctrl+Alt+D`.
 4. Resize a snapped window by dragging an edge. Adjacent snapped windows in the
    same layout follow after release.
-5. Press `Ctrl+Alt+F` when a window should temporarily ignore Magnetile drag
+5. Drop near a shared zone edge to temporarily merge adjacent zones; press
+   `Ctrl+Alt+R` to restore the configured layout.
+6. Press `Ctrl+Alt+F` when a window should temporarily ignore Magnetile drag
    snapping.
 
 #### Zone Selector
