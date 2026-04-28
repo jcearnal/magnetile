@@ -11,6 +11,7 @@ Item {
     property var highlightedTarget
     property int layoutIndex
     property var targets: []
+    readonly property color highlightColor: "#00d5ff"
     property alias repeater: repeater
 
     Repeater {
@@ -95,7 +96,7 @@ Item {
 
                 anchors.fill: parent
                 color: "transparent"
-                border.color: (active) ? modelData.color || colorHelper.accentColor : "transparent"
+                border.color: active ? highlightColor : "transparent"
                 border.width: 3
                 radius: 8
             }
@@ -106,7 +107,7 @@ Item {
 
                 opacity: active ? 0.1 : 0
                 anchors.fill: parent
-                color: modelData.color || colorHelper.accentColor
+                color: highlightColor
                 radius: 8
             }
 

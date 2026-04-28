@@ -160,6 +160,9 @@ If another tiled window already occupies one of the zones that becomes part of
 the merge, Magnetile expands that window to the same merged target instead of
 leaving it underneath or marking it floating.
 
+Zone highlights and merge previews use a fixed cyan indicator for now so the
+merge state stands apart from theme-derived overlay colors.
+
 ![](./media/shortcuts.gif)
 
 ### Theming
