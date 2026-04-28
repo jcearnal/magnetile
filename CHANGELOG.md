@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-28
+
+### Added
+
+- Runtime merged zones: drop near a shared zone edge to span adjacent zones
+  until the current layout is reset.
+- High-contrast cyan zone and merge preview indicators.
+- Existing tiled windows in affected zones now expand to the merged target so
+  zone stacks stay coherent.
+
+### Changed
+
+- Multi-zone spanning uses edge/gutter drop detection instead of a held hotkey,
+  because KWin script shortcuts are not reliable during interactive window
+  moves.
+
 ## [0.1.1] - 2026-04-14
 
 ### Fixed
