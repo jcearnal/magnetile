@@ -14,23 +14,6 @@ zone workflow that made KZones useful, then extends it for a Wayland-only KDE
 Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
 visual layout editor helper.
 
-## What's New In 0.2.2
-
-Magnetile 0.2.2 restores per-output layout tracking for reset and layout
-cycling. `Ctrl+Alt+R` now resets only the active output scope, and layout
-cycling refreshes from the active window's output before changing the tracked
-layout.
-
-## What's New In 0.2.1
-
-Magnetile 0.2.1 fixes runtime merged zones working loose from connected
-resizing. Merged targets now keep their resize metadata, stacked windows follow
-the merged target, and `Ctrl+Alt+R` clears runtime merge/resize state back to
-the configured layout.
-
-Bundled layouts and examples now default to 10 px padding, so new installs and
-test loads keep visible gaps between snapped windows by default.
-
 ## What's New In 0.2.0
 
 Magnetile 0.2.0 adds runtime merged zones. While dragging a window, drop near
