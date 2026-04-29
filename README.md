@@ -14,6 +14,13 @@ zone workflow that made KZones useful, then extends it for a Wayland-only KDE
 Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
 visual layout editor helper.
 
+## What's New In 0.2.2
+
+Magnetile 0.2.2 restores per-output layout tracking for reset and layout
+cycling. `Ctrl+Alt+R` now resets only the active output scope, and layout
+cycling refreshes from the active window's output before changing the tracked
+layout.
+
 ## What's New In 0.2.1
 
 Magnetile 0.2.1 fixes runtime merged zones working loose from connected

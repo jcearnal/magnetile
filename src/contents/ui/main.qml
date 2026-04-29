@@ -879,9 +879,15 @@ Item {
     }
 
     function resetCurrentLayoutGeometry() {
+        const referenceClient = Workspace.activeWindow;
+        if (referenceClient)
+            refreshClientAreaForClient(referenceClient);
+        else
+            refreshClientArea(activeScreen || Workspace.activeScreen);
+
+        const output = referenceClient ? clientOutput(referenceClient) : activeScreen || Workspace.activeScreen;
         const desktop = Workspace.currentDesktop;
         const activity = Workspace.currentActivity;
-        refreshClientArea(activeScreen || Workspace.activeScreen);
         const layout = currentLayout;
         let count = 0;
 
@@ -891,8 +897,7 @@ Item {
             if (!checkFilter(client) || client.minimized)
                 continue;
 
-            const output = clientOutput(client);
-            if (!sameDesktop(client, desktop) || clientActivity(client) !== activity)
+            if (clientOutput(client) !== output || !sameDesktop(client, desktop) || clientActivity(client) !== activity)
                 continue;
 
             let zone = -1;
@@ -907,13 +912,12 @@ Item {
 
             resetClients.push({
                 "client": client,
-                "output": output,
                 "zone": zone
             });
         }
 
-        resizedZoneGeometries = new Object();
-        mergedZones = new Object();
+        clearRuntimeLayoutGeometry(layout, output, desktop, activity);
+        clearMergedZones(layout, output, desktop, activity);
         highlightedZone = -1;
         highlightedTarget = null;
         mergePreviewTarget = null;
@@ -927,7 +931,6 @@ Item {
         for (let i = 0; i < resetClients.length; i++) {
             const item = resetClients[i];
             const client = item.client;
-            const output = item.output;
             const zone = item.zone;
             client.setMaximize(false, false);
             client.frameGeometry = configuredZoneGeometry(layout, zone, output);
@@ -942,6 +945,7 @@ Item {
             count++;
         }
 
+        resizedZoneGeometries = Object.assign({}, resizedZoneGeometries);
         Utils.osd(count > 0 ? `Reset ${count} window${count === 1 ? "" : "s"} to ${config.layouts[layout].name}` : `Reset ${config.layouts[layout].name}`);
     }
 
@@ -2537,11 +2541,21 @@ Item {
 
     Components.Shortcuts {
         onCycleLayouts: {
+            if (Workspace.activeWindow)
+                refreshClientAreaForClient(Workspace.activeWindow);
+            else
+                refreshClientArea(activeScreen || Workspace.activeScreen);
+
             setCurrentLayout((currentLayout + 1) % config.layouts.length);
             highlightedZone = -1;
             Utils.osd(osdLayoutSelection());
         }
         onCycleLayoutsReversed: {
+            if (Workspace.activeWindow)
+                refreshClientAreaForClient(Workspace.activeWindow);
+            else
+                refreshClientArea(activeScreen || Workspace.activeScreen);
+
             setCurrentLayout((currentLayout - 1 + config.layouts.length) % config.layouts.length);
             highlightedZone = -1;
             Utils.osd(osdLayoutSelection());
