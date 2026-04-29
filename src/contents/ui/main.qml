@@ -335,6 +335,15 @@ Item {
         return aStart < bEnd - diff && aEnd > bStart + diff;
     }
 
+    function rectsOverlap(a, b, tolerance) {
+        if (!a || !b)
+            return false;
+
+        const diff = tolerance || geometryTolerance;
+        return rangesOverlap(a.x, a.x + a.width, b.x, b.x + b.width, diff) &&
+            rangesOverlap(a.y, a.y + a.height, b.y, b.y + b.height, diff);
+    }
+
     function resizeGapTolerance(layout) {
         const padding = layout && layout.padding ? Number(layout.padding) : 0;
         const safePadding = isFinite(padding) ? Math.max(0, padding) : 0;
@@ -345,8 +354,10 @@ Item {
         return edgeGap >= -geometryTolerance && edgeGap <= tolerance;
     }
 
-    function preservedResizeGap(edgeGap) {
-        return Math.max(0, edgeGap);
+    function preservedResizeGap(edgeGap, layout) {
+        const padding = layout && layout.padding ? Number(layout.padding) : 0;
+        const safePadding = isFinite(padding) ? Math.max(0, padding) : 0;
+        return Math.max(safePadding, edgeGap);
     }
 
     function edgesAligned(a, b) {
@@ -467,6 +478,20 @@ Item {
         return false;
     }
 
+    function zoneListsEqual(layoutIndex, a, b) {
+        const left = normalizeZoneList(layoutIndex, a);
+        const right = normalizeZoneList(layoutIndex, b);
+        if (left.length !== right.length)
+            return false;
+
+        for (let i = 0; i < left.length; i++) {
+            if (left[i] !== right[i])
+                return false;
+
+        }
+        return true;
+    }
+
     function zonesFormRectangle(layoutIndex, zones) {
         const normalized = normalizeZoneList(layoutIndex, zones);
         if (normalized.length <= 1)
@@ -518,6 +543,17 @@ Item {
         return roundedRect(left, top, right - left, bottom - top);
     }
 
+    function resizeLogicalGeometry(layoutIndex, zones, screen) {
+        const normalized = normalizeZoneList(layoutIndex, zones);
+        if (normalized.length === 0)
+            return null;
+
+        if (normalized.length === 1)
+            return zoneGeometry(layoutIndex, normalized[0], screen);
+
+        return zonesUnionGeometry(layoutIndex, normalized, screen);
+    }
+
     function configuredZoneForTarget(layoutIndex, zoneIndex) {
         if (!validZoneIndex(layoutIndex, zoneIndex))
             return {};
@@ -538,6 +574,43 @@ Item {
 
         if (validZoneIndex(target.layout, target.zone))
             return zoneGeometry(target.layout, target.zone, target.output || activeScreen || Workspace.activeScreen);
+
+        return null;
+    }
+
+    function configuredZonesUnionGeometry(layoutIndex, zones, screen) {
+        const normalized = normalizeZoneList(layoutIndex, zones);
+        if (normalized.length === 0)
+            return null;
+
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        for (let i = 0; i < normalized.length; i++) {
+            const geometry = configuredZoneGeometry(layoutIndex, normalized[i], screen);
+            left = Math.min(left, geometry.x);
+            top = Math.min(top, geometry.y);
+            right = Math.max(right, geometry.x + geometry.width);
+            bottom = Math.max(bottom, geometry.y + geometry.height);
+        }
+
+        if (!isFinite(left) || !isFinite(top) || !isFinite(right) || !isFinite(bottom))
+            return null;
+
+        return roundedRect(left, top, right - left, bottom - top);
+    }
+
+    function configuredTargetGeometry(target) {
+        if (!target)
+            return null;
+
+        const screen = target.output || activeScreen || Workspace.activeScreen;
+        if (target.type === "merge")
+            return configuredZonesUnionGeometry(target.layout, target.zones, screen);
+
+        if (validZoneIndex(target.layout, target.zone))
+            return configuredZoneGeometry(target.layout, target.zone, screen);
 
         return null;
     }
@@ -563,7 +636,7 @@ Item {
             "layout": layout,
             "zone": zoneIndex,
             "zones": [zoneIndex],
-            "geometry": zoneGeometry(layout, zoneIndex, resolvedScreen),
+            "geometry": configuredZoneGeometry(layout, zoneIndex, resolvedScreen),
             "output": resolvedScreen,
             "color": zone.color,
             "label": (zoneIndex + 1).toString()
@@ -589,7 +662,7 @@ Item {
         if (normalized.length === 1)
             return singleZoneTarget(layout, normalized[0], screen, desktop, activity);
 
-        const geometry = zonesUnionGeometry(layout, normalized, screen);
+        const geometry = configuredZonesUnionGeometry(layout, normalized, screen);
         if (!geometry)
             return null;
 
@@ -772,6 +845,7 @@ Item {
 
         client.zones = [];
         client.magnetileMergedZone = "";
+        client.magnetileResetZone = -1;
     }
 
     function rectFromStoredGeometry(geometry) {
@@ -805,37 +879,58 @@ Item {
     }
 
     function resetCurrentLayoutGeometry() {
-        const referenceClient = Workspace.activeWindow;
-        if (referenceClient)
-            refreshClientAreaForClient(referenceClient);
-        else
-            refreshClientArea(activeScreen || Workspace.activeScreen);
-
-        const output = referenceClient ? clientOutput(referenceClient) : activeScreen || Workspace.activeScreen;
         const desktop = Workspace.currentDesktop;
         const activity = Workspace.currentActivity;
+        refreshClientArea(activeScreen || Workspace.activeScreen);
         const layout = currentLayout;
         let count = 0;
 
-        clearRuntimeLayoutGeometry(layout, output, desktop, activity);
-        clearMergedZones(layout, output, desktop, activity);
+        const resetClients = [];
         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
             const client = Workspace.stackingOrder[i];
             if (!checkFilter(client) || client.minimized)
                 continue;
 
-            if (clientOutput(client) !== output || !sameDesktop(client, desktop) || clientActivity(client) !== activity)
+            const output = clientOutput(client);
+            if (!sameDesktop(client, desktop) || clientActivity(client) !== activity)
                 continue;
 
             let zone = -1;
+            if (validZoneIndex(layout, client.magnetileResetZone))
+                zone = Math.round(Number(client.magnetileResetZone));
+
             if (clientInCurrentScope(client, output, desktop, activity))
-                zone = recoverClientZone(client, layout, true);
+                zone = zone !== -1 ? zone : recoverClientZone(client, layout, true);
 
             if (zone < 0 || zone >= config.layouts[layout].zones.length)
                 continue;
 
+            resetClients.push({
+                "client": client,
+                "output": output,
+                "zone": zone
+            });
+        }
+
+        resizedZoneGeometries = new Object();
+        mergedZones = new Object();
+        highlightedZone = -1;
+        highlightedTarget = null;
+        mergePreviewTarget = null;
+        zoneSelector.expanded = false;
+        zoneSelector.near = false;
+        hideDialogSurface(debugDialog);
+        hideDialogSurface(mainDialog);
+        if (mainItem)
+            mainItem.refreshTargets();
+
+        for (let i = 0; i < resetClients.length; i++) {
+            const item = resetClients[i];
+            const client = item.client;
+            const output = item.output;
+            const zone = item.zone;
             client.setMaximize(false, false);
-            client.frameGeometry = zoneGeometry(layout, zone, output);
+            client.frameGeometry = configuredZoneGeometry(layout, zone, output);
             client.zone = zone;
             client.layout = layout;
             client.desktop = desktop;
@@ -847,7 +942,6 @@ Item {
             count++;
         }
 
-        resizedZoneGeometries = Object.assign({}, resizedZoneGeometries);
         Utils.osd(count > 0 ? `Reset ${count} window${count === 1 ? "" : "s"} to ${config.layouts[layout].name}` : `Reset ${config.layouts[layout].name}`);
     }
 
@@ -951,15 +1045,13 @@ Item {
         if (!checkFilter(client))
             return -1;
 
-        if (clientZones(client).length > 1)
-            return -1;
-
         const layoutIndex = clampLayoutIndex(layout);
         const output = clientOutput(client);
-        if (client.magnetileTiled === true && validZoneIndex(layoutIndex, client.zone) && client.layout === layoutIndex) {
-            const geometry = zoneGeometry(layoutIndex, client.zone, output);
-            if (rectsClose(client.frameGeometry, geometry))
-                return client.zone;
+        const zonesForClient = clientZones(client);
+        if (client.magnetileTiled === true && zonesForClient.length > 0 && client.layout === layoutIndex) {
+            const geometry = resizeLogicalGeometry(layoutIndex, zonesForClient, output);
+            if (geometry && rectsClose(client.frameGeometry, geometry))
+                return zonesForClient[0];
 
         }
 
@@ -1048,6 +1140,13 @@ Item {
                 nextIndex = (index + 1) % clientsInZone.length;
 
             const nextClient = clientsInZone[nextIndex];
+            const zones = clientZones(nextClient);
+            const geometry = resizeLogicalGeometry(layout, zones.length > 0 ? zones : zone, clientOutput(nextClient));
+            if (geometry && canMutateWindowGeometry(nextClient) && !rectsClose(nextClient.frameGeometry, geometry)) {
+                nextClient.setMaximize(false, false);
+                nextClient.frameGeometry = geometry;
+                nextClient.magnetileTiled = true;
+            }
             Workspace.activeWindow = nextClient;
             Utils.osd("Zone " + (zone + 1) + ": " + (nextIndex + 1) + "/" + clientsInZone.length + " " + clientStackLabel(nextClient));
             return nextClient;
@@ -1087,13 +1186,16 @@ Item {
             return;
         }
 
-        const geometry = targetGeometry(target);
+        const geometry = configuredTargetGeometry(target);
         if (!geometry)
             return;
 
         refreshClientAreaForClient(client);
         Utils.log("Moving client " + client.resourceClass.toString() + " to target " + target.id + " with geometry " + JSON.stringify(geometry));
         moveClientsOverlappingTarget(client, target, geometry);
+        if (target.type === "merge" && validZoneIndex(target.layout, client.zone))
+            client.magnetileResetZone = client.zone;
+
         saveClientTargetProperties(client, target);
         client.magnetileFreeMove = false;
         client.setMaximize(false, false);
@@ -1161,10 +1263,12 @@ Item {
         if (!client || !target)
             return;
 
+        const previousResetZone = client.magnetileResetZone;
         saveClientProperties(client, target.zone);
         client.layout = target.layout;
         client.zones = normalizeZoneList(target.layout, target.zones);
         client.magnetileMergedZone = target.type === "merge" ? target.id : "";
+        client.magnetileResetZone = target.type === "merge" && validZoneIndex(target.layout, previousResetZone) ? previousResetZone : -1;
         client.magnetileTiled = true;
     }
 
@@ -1182,11 +1286,16 @@ Item {
             if (!clientInCurrentScope(client, output, Workspace.currentDesktop, Workspace.currentActivity))
                 continue;
 
-            if (client.layout !== target.layout)
+            const metadataOverlap = zonesOverlap(clientZones(client), targetZones);
+            const geometryOverlap = rectsOverlap(client.frameGeometry, geometry, geometryTolerance);
+            if (client.layout !== target.layout && !geometryOverlap)
                 continue;
 
-            if (!zonesOverlap(clientZones(client), targetZones))
+            if (!metadataOverlap && !geometryOverlap)
                 continue;
+
+            if (target.type === "merge" && validZoneIndex(target.layout, client.zone))
+                client.magnetileResetZone = client.zone;
 
             saveClientTargetProperties(client, target);
             client.magnetileFreeMove = false;
@@ -1531,7 +1640,10 @@ Item {
         const stacks = {};
         for (let i = 0; i < snapshots.length; i++) {
             const item = snapshots[i];
-            const key = "z" + (item.zone + 1);
+            const zones = normalizeZoneList(item.layout, item.zones !== undefined ? item.zones : item.zone);
+            const key = "z" + zones.map(function(zone) {
+                return zone + 1;
+            }).join("+");
             if (!stacks[key])
                 stacks[key] = [];
 
@@ -1557,22 +1669,30 @@ Item {
         const snapshots = [];
         for (let i = 0; i < windows.length; i++) {
             const window = windows[i];
+            const zones = clientZones(window);
             snapshots.push({
                 "client": window,
-                "zone": window.zone,
+                "zone": zones.length > 0 ? zones[0] : window.zone,
+                "zones": zones,
+                "mergedZone": window.magnetileMergedZone || "",
+                "resetZone": window.magnetileResetZone,
                 "layout": window.layout,
                 "geometry": Qt.rect(window.frameGeometry.x, window.frameGeometry.y, window.frameGeometry.width, window.frameGeometry.height),
-                "logicalGeometry": zoneGeometry(layout, window.zone, output)
+                "logicalGeometry": resizeLogicalGeometry(layout, zones, output)
             });
         }
 
-        const participantNames = snapshots.map(item => clientStackLabel(item.client) + " z" + (item.zone + 1));
+        const clientZonesList = clientZones(client);
+        const participantNames = snapshots.map(item => clientStackLabel(item.client) + " z" + normalizeZoneList(item.layout, item.zones !== undefined ? item.zones : item.zone).map(function(zone) {
+            return zone + 1;
+        }).join("+"));
         const zoneStacks = resizeZoneStacks(snapshots);
         resizeDebugInfo = {
             "active": true,
             "client": clientDebugName(client),
             "layout": layout,
-            "zone": client.zone,
+            "zone": clientZonesList.length > 0 ? clientZonesList[0] : client.zone,
+            "zones": clientZonesList,
             "output": outputName(output),
             "desktop": desktop && desktop.name ? desktop.name : "",
             "activity": activity || "",
@@ -1588,13 +1708,16 @@ Item {
             Utils.log("Resize skipped: " + resizeDebugInfo.skipped.join("; "));
 
         return {
-            "zone": client.zone,
+            "zone": clientZonesList.length > 0 ? clientZonesList[0] : client.zone,
+            "zones": clientZonesList,
+            "mergedZone": client.magnetileMergedZone || "",
+            "resetZone": client.magnetileResetZone,
             "layout": layout,
             "output": output,
             "desktop": desktop,
             "activity": activity,
             "geometry": Qt.rect(client.frameGeometry.x, client.frameGeometry.y, client.frameGeometry.width, client.frameGeometry.height),
-            "logicalGeometry": zoneGeometry(layout, client.zone, output),
+            "logicalGeometry": resizeLogicalGeometry(layout, clientZonesList, output),
             "zoneGeometries": zoneGeometries,
             "windows": snapshots
         };
@@ -1606,9 +1729,22 @@ Item {
 
         const layoutIndex = clampLayoutIndex(snapshot.layout);
         const zones = config.layouts[layoutIndex].zones;
-        const oldTarget = rectEdges(snapshot.zoneGeometries[snapshot.zone] || snapshot.logicalGeometry || snapshot.geometry);
+        const targetZones = normalizeZoneList(layoutIndex, snapshot.zones !== undefined ? snapshot.zones : snapshot.zone);
+        if (targetZones.length === 0)
+            return;
+
+        const targetZoneSet = {};
+        for (let i = 0; i < targetZones.length; i++)
+            targetZoneSet[targetZones[i]] = true;
+
+        const oldTargetGeometry = snapshot.logicalGeometry || zonesUnionGeometry(layoutIndex, targetZones, snapshot.output) || snapshot.zoneGeometries[snapshot.zone] || snapshot.geometry;
+        if (!oldTargetGeometry)
+            return;
+
+        const oldTarget = rectEdges(oldTargetGeometry);
         const newTarget = rectEdges(finalGeometry);
-        const resizeTolerance = resizeGapTolerance(config.layouts[layoutIndex]);
+        const resizeLayout = config.layouts[layoutIndex];
+        const resizeTolerance = resizeGapTolerance(resizeLayout);
         const minSize = Math.max(1, geometryTolerance);
         const changed = {
             "left": Math.abs(newTarget.left - oldTarget.left) > geometryTolerance,
@@ -1624,8 +1760,26 @@ Item {
             if (!oldZoneGeometry)
                 continue;
 
-            if (i === snapshot.zone) {
-                storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, finalGeometry);
+            if (targetZoneSet[i]) {
+                if (targetZones.length === 1) {
+                    storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, finalGeometry);
+                    continue;
+                }
+
+                const oldZone = rectEdges(oldZoneGeometry);
+                const widthScale = oldTarget.width > minSize ? newTarget.width / oldTarget.width : 1;
+                const heightScale = oldTarget.height > minSize ? newTarget.height / oldTarget.height : 1;
+                const nextLeft = newTarget.left + ((oldZone.left - oldTarget.left) * widthScale);
+                const nextTop = newTarget.top + ((oldZone.top - oldTarget.top) * heightScale);
+                const nextRight = newTarget.left + ((oldZone.right - oldTarget.left) * widthScale);
+                const nextBottom = newTarget.top + ((oldZone.bottom - oldTarget.top) * heightScale);
+                const nextWidth = Math.round(nextRight - nextLeft);
+                const nextHeight = Math.round(nextBottom - nextTop);
+                if (nextWidth < minSize || nextHeight < minSize)
+                    storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, oldZoneGeometry);
+                else
+                    storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, roundedRect(nextLeft, nextTop, nextWidth, nextHeight));
+
                 continue;
             }
 
@@ -1648,22 +1802,22 @@ Item {
             const sameRow = edgesAligned(oldZone.top, oldTarget.top) && edgesAligned(oldZone.bottom, oldTarget.bottom);
 
             if (changed.right && rightAdjacent)
-                nextLeft = newTarget.right + preservedResizeGap(rightGap);
+                nextLeft = newTarget.right + preservedResizeGap(rightGap, resizeLayout);
             else if (changed.right && sameColumn)
                 nextRight = newTarget.right;
 
             if (changed.left && leftAdjacent)
-                nextRight = newTarget.left - preservedResizeGap(leftGap);
+                nextRight = newTarget.left - preservedResizeGap(leftGap, resizeLayout);
             else if (changed.left && sameColumn)
                 nextLeft = newTarget.left;
 
             if (changed.bottom && bottomAdjacent)
-                nextTop = newTarget.bottom + preservedResizeGap(bottomGap);
+                nextTop = newTarget.bottom + preservedResizeGap(bottomGap, resizeLayout);
             else if (changed.bottom && sameRow)
                 nextBottom = newTarget.bottom;
 
             if (changed.top && topAdjacent)
-                nextBottom = newTarget.top - preservedResizeGap(topGap);
+                nextBottom = newTarget.top - preservedResizeGap(topGap, resizeLayout);
             else if (changed.top && sameRow)
                 nextTop = newTarget.top;
 
@@ -1677,6 +1831,22 @@ Item {
         }
     }
 
+    function restoreResizeTargetProperties(client, item, snapshot) {
+        if (!client || !item)
+            return;
+
+        const layout = clampLayoutIndex(item.layout);
+        const zones = normalizeZoneList(layout, item.zones !== undefined ? item.zones : item.zone);
+        client.zone = zones.length > 0 ? zones[0] : item.zone;
+        client.zones = zones;
+        client.magnetileMergedZone = item.mergedZone || (zones.length > 1 ? mergeIdForZones(zones) : "");
+        client.magnetileResetZone = validZoneIndex(layout, item.resetZone) ? Math.round(Number(item.resetZone)) : -1;
+        client.layout = layout;
+        client.desktop = snapshot.desktop;
+        client.activity = snapshot.activity;
+        client.magnetileTiled = true;
+    }
+
     function connectedResize(client) {
         if (!canMutateWindowGeometry(client))
             return false;
@@ -1687,8 +1857,10 @@ Item {
 
         const oldGeometry = rectEdges(snapshot.geometry);
         const oldLogicalGeometry = rectEdges(snapshot.logicalGeometry || snapshot.geometry);
+        const activeZones = normalizeZoneList(snapshot.layout, snapshot.zones !== undefined ? snapshot.zones : snapshot.zone);
         let newGeometry = rectEdges(client.frameGeometry);
-        const resizeTolerance = resizeGapTolerance(config.layouts[clampLayoutIndex(snapshot.layout)]);
+        const resizeLayout = config.layouts[clampLayoutIndex(snapshot.layout)];
+        const resizeTolerance = resizeGapTolerance(resizeLayout);
         const minSize = Math.max(1, geometryTolerance);
         const changed = {
             "left": Math.abs(newGeometry.left - oldGeometry.left) > geometryTolerance,
@@ -1725,10 +1897,10 @@ Item {
             const leftAdjacent = (isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY) || (isResizeAdjacent(logicalLeftGap, resizeTolerance) && overlapsLogicalY);
             const bottomAdjacent = (isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalBottomGap, resizeTolerance) && overlapsLogicalX);
             const topAdjacent = (isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalTopGap, resizeTolerance) && overlapsLogicalX);
-            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap) : preservedResizeGap(logicalRightGap);
-            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap) : preservedResizeGap(logicalLeftGap);
-            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap) : preservedResizeGap(logicalBottomGap);
-            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap) : preservedResizeGap(logicalTopGap);
+            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap, resizeLayout) : preservedResizeGap(logicalRightGap, resizeLayout);
+            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap, resizeLayout) : preservedResizeGap(logicalLeftGap, resizeLayout);
+            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap, resizeLayout) : preservedResizeGap(logicalBottomGap, resizeLayout);
+            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap, resizeLayout) : preservedResizeGap(logicalTopGap, resizeLayout);
 
             if (changed.right && rightAdjacent)
                 constrainedRight = Math.min(constrainedRight, oldOther.right - preservedRightGap - minSize);
@@ -1761,6 +1933,18 @@ Item {
             if (!checkFilter(window) || window.minimized)
                 continue;
 
+            if (zoneListsEqual(snapshot.layout, activeZones, item.zones !== undefined ? item.zones : item.zone)) {
+                const nextGeometry = Qt.rect(newGeometry.left, newGeometry.top, newGeometry.width, newGeometry.height);
+                if (!rectsClose(window.frameGeometry, nextGeometry)) {
+                    window.setMaximize(false, false);
+                    window.frameGeometry = nextGeometry;
+                    applied = true;
+                    resizeDebugInfo.appliedCount = (resizeDebugInfo.appliedCount || 0) + 1;
+                }
+                restoreResizeTargetProperties(window, item, snapshot);
+                continue;
+            }
+
             const oldOther = rectEdges(item.geometry);
             const oldOtherLogical = rectEdges(item.logicalGeometry || item.geometry);
             let nextLeft = oldOther.left;
@@ -1786,10 +1970,10 @@ Item {
             const topAdjacent = (isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX) || (isResizeAdjacent(logicalTopGap, resizeTolerance) && overlapsLogicalX);
             const sameLogicalColumn = edgesAligned(oldOtherLogical.left, oldLogicalGeometry.left) && edgesAligned(oldOtherLogical.right, oldLogicalGeometry.right);
             const sameLogicalRow = edgesAligned(oldOtherLogical.top, oldLogicalGeometry.top) && edgesAligned(oldOtherLogical.bottom, oldLogicalGeometry.bottom);
-            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap) : preservedResizeGap(logicalRightGap);
-            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap) : preservedResizeGap(logicalLeftGap);
-            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap) : preservedResizeGap(logicalBottomGap);
-            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap) : preservedResizeGap(logicalTopGap);
+            const preservedRightGap = isResizeAdjacent(rightGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(rightGap, resizeLayout) : preservedResizeGap(logicalRightGap, resizeLayout);
+            const preservedLeftGap = isResizeAdjacent(leftGap, resizeTolerance) && overlapsOldY ? preservedResizeGap(leftGap, resizeLayout) : preservedResizeGap(logicalLeftGap, resizeLayout);
+            const preservedBottomGap = isResizeAdjacent(bottomGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(bottomGap, resizeLayout) : preservedResizeGap(logicalBottomGap, resizeLayout);
+            const preservedTopGap = isResizeAdjacent(topGap, resizeTolerance) && overlapsOldX ? preservedResizeGap(topGap, resizeLayout) : preservedResizeGap(logicalTopGap, resizeLayout);
 
             if (changed.right && rightAdjacent)
                 nextLeft = newGeometry.right + preservedRightGap;
@@ -1822,20 +2006,12 @@ Item {
 
             window.setMaximize(false, false);
             window.frameGeometry = nextGeometry;
-            window.zone = item.zone;
-            window.layout = item.layout;
-            window.desktop = snapshot.desktop;
-            window.activity = snapshot.activity;
-            window.magnetileTiled = true;
+            restoreResizeTargetProperties(window, item, snapshot);
             applied = true;
             resizeDebugInfo.appliedCount = (resizeDebugInfo.appliedCount || 0) + 1;
         }
 
-        client.zone = snapshot.zone;
-        client.layout = snapshot.layout;
-        client.desktop = snapshot.desktop;
-        client.activity = snapshot.activity;
-        client.magnetileTiled = true;
+        restoreResizeTargetProperties(client, snapshot, snapshot);
         updateRuntimeLayoutGeometry(snapshot, client.frameGeometry);
         resizeDebugInfo.lastApplied = applied;
         resizeDebugInfo = Object.assign({}, resizeDebugInfo);
@@ -1896,7 +2072,7 @@ Item {
                             client.opacity = 0.5;
                         }
                     }
-                    if (config.rememberWindowGeometries && validZoneIndex(client.layout, client.zone)) {
+                    if (config.rememberWindowGeometries && client.magnetileFreeMove === true && validZoneIndex(client.layout, client.zone)) {
                         if (client.oldGeometry) {
                             const geometry = client.oldGeometry;
                             const zone = config.layouts[client.layout].zones[client.zone];

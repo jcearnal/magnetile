@@ -73,7 +73,7 @@
                 [
     {
         &quot;name&quot;: &quot;Priority Grid&quot;,
-        &quot;padding&quot;: 0,
+        &quot;padding&quot;: 10,
         &quot;zones&quot;: [
             {
                 &quot;x&quot;: 0,
@@ -97,6 +97,7 @@
     },
     {
         &quot;name&quot;: &quot;Quadrant Grid&quot;,
+        &quot;padding&quot;: 10,
         &quot;zones&quot;: [
             {
                 &quot;x&quot;: 0,

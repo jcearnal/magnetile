@@ -5,7 +5,7 @@ const fallbackExamples = {
   priority: [
     {
       name: "Priority Grid",
-      padding: 0,
+      padding: 10,
       zones: [
         { x: 0, y: 0, height: 100, width: 25 },
         { x: 25, y: 0, height: 100, width: 50 },
@@ -16,7 +16,7 @@ const fallbackExamples = {
   quadrants: [
     {
       name: "Quadrant Grid",
-      padding: 0,
+      padding: 10,
       zones: [
         { x: 0, y: 0, height: 50, width: 50 },
         { x: 0, y: 50, height: 50, width: 50 },
@@ -28,7 +28,7 @@ const fallbackExamples = {
   columns: [
     {
       name: "Columns",
-      padding: 0,
+      padding: 10,
       zones: [
         { x: 0, y: 0, height: 100, width: 25 },
         { x: 25, y: 0, height: 100, width: 25 },
@@ -196,7 +196,7 @@ function refreshJson() {
 
 function render() {
   if (!layouts.length) {
-    layouts.push({ name: "Layout 1", padding: 0, zones: [] });
+    layouts.push({ name: "Layout 1", padding: 10, zones: [] });
   }
 
   layoutIndex = clamp(layoutIndex, 0, layouts.length - 1);
@@ -383,7 +383,7 @@ canvas.onpointerup = endDrag;
 canvas.onpointercancel = endDrag;
 
 el("addLayout").onclick = () => {
-  layouts.push({ name: `Layout ${layouts.length + 1}`, padding: 0, zones: [{ x: 0, y: 0, width: 50, height: 50 }] });
+  layouts.push({ name: `Layout ${layouts.length + 1}`, padding: 10, zones: [{ x: 0, y: 0, width: 50, height: 50 }] });
   layoutIndex = layouts.length - 1;
   zoneIndex = 0;
   render();

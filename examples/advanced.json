@@ -1,7 +1,7 @@
 [
     {
         "name": "Priority Grid",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
@@ -28,7 +28,7 @@
     },
     {
         "name": "Quadrant Grid",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
@@ -58,7 +58,7 @@
     },
     {
         "name": "Columns",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,

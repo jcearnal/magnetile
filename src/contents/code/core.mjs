@@ -24,7 +24,7 @@ export function loadConfig() {
   const defaultLayouts = [
     {
       name: "Priority Grid",
-      padding: 0,
+      padding: 10,
       zones: [
         { x: 0, y: 0, height: 100, width: 25 },
         { x: 25, y: 0, height: 100, width: 50 },
@@ -33,6 +33,7 @@ export function loadConfig() {
     },
     {
       name: "Quadrant Grid",
+      padding: 10,
       zones: [
         { x: 0, y: 0, height: 50, width: 50 },
         { x: 0, y: 50, height: 50, width: 50 },

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-04-29
+
+### Fixed
+
+- Connected resizing now treats runtime merged zones as first-class resize
+  targets, preserving merged-zone metadata and stacked windows during resize.
+- Resetting the current layout now clears runtime merged-zone and resized-grid
+  state so merged zones return to the configured layout.
+- Snapping windows back into normal zones no longer loses configured padding
+  after runtime resize or merge state changes.
+
+### Changed
+
+- Default bundled layouts and examples now use 10 px padding instead of zero
+  padding, matching the expected out-of-box visual spacing.
+
 ## [0.2.0] - 2026-04-28
 
 ### Added

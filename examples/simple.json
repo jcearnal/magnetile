@@ -1,7 +1,7 @@
 [
     {
         "name": "Layout 1",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,

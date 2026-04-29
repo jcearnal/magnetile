@@ -14,6 +14,16 @@ zone workflow that made KZones useful, then extends it for a Wayland-only KDE
 Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
 visual layout editor helper.
 
+## What's New In 0.2.1
+
+Magnetile 0.2.1 fixes runtime merged zones working loose from connected
+resizing. Merged targets now keep their resize metadata, stacked windows follow
+the merged target, and `Ctrl+Alt+R` clears runtime merge/resize state back to
+the configured layout.
+
+Bundled layouts and examples now default to 10 px padding, so new installs and
+test loads keep visible gaps between snapped windows by default.
+
 ## What's New In 0.2.0
 
 Magnetile 0.2.0 adds runtime merged zones. While dragging a window, drop near
@@ -118,6 +128,14 @@ leaving it underneath or marking it floating.
 
 Zone highlights and merge previews use a fixed cyan indicator for now so the
 merge state stands apart from theme-derived overlay colors.
+
+### Troubleshooting Runtime State
+
+When testing from a source checkout, keep only one Magnetile instance enabled.
+Running an installed `magnetile` package and a live `magnetile-test` script at
+the same time can make both instances react to the same move or resize, causing
+padding loss or stale zone state. Disable the packaged instance before using
+`make reload` for source testing.
 
 #### Free Movement
 
@@ -374,7 +392,7 @@ Example layouts:
 [
     {
         "name": "Layout 1",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
@@ -408,7 +426,7 @@ Example layouts:
 [
     {
         "name": "Priority Grid",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
@@ -433,7 +451,7 @@ Example layouts:
     },
     {
         "name": "Quadrant Grid",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
@@ -463,7 +481,7 @@ Example layouts:
     },
     {
         "name": "Columns",
-        "padding": 0,
+        "padding": 10,
         "zones": [
             {
                 "x": 0,
