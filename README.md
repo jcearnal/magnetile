@@ -368,8 +368,8 @@ To use it:
 
 The editor can also export KZones-compatible layout JSON. KZones and
 [PlasmaZones](https://github.com/fuddlesworth/PlasmaZones) users can select
-**KZones** as the export target and paste the generated JSON into their script's
-layout settings. For KZones, use
+**KZones / PlasmaZones** as the export target and paste the generated JSON into
+their script's layout settings. For KZones, use
 `System Settings / Window Management / KWin Scripts / KZones / Layouts`.
 
 You can also open and save `.json` files in the editor for backup or reuse.

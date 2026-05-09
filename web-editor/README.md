@@ -12,10 +12,9 @@ It edits the shared KWin script layout schema:
 
 ## Compatibility
 
-The default export target is Magnetile. The KZones export target emits the same
-documented KZones-compatible layout array and keeps common optional KZones
-fields. PlasmaZones can import KZones layouts, so use the KZones export target
-for PlasmaZones.
+The default export target is Magnetile. The KZones / PlasmaZones export target
+emits the documented KZones-compatible layout array and keeps common optional
+KZones fields. PlasmaZones uses that same format.
 
 Use the generated JSON in:
 

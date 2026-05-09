@@ -4,7 +4,7 @@ export const formatDescriptions = {
   magnetile:
     "Magnetile export: paste this array into System Settings / Window Management / KWin Scripts / Magnetile / Layouts.",
   kzones:
-    "KZones export: paste this array into KZones layouts, or import it into PlasmaZones."
+    "KZones / PlasmaZones export: paste this array into KZones layouts, or import it into PlasmaZones."
 };
 
 const commonZoneKeys = new Set([

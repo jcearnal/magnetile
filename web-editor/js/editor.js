@@ -541,7 +541,7 @@ el("copyJson").onclick = async () => {
 for (const radio of document.querySelectorAll("input[name='format']")) {
   radio.onchange = () => {
     refreshJson();
-    setStatus(`Export target set to ${radio.value === "kzones" ? "KZones" : "Magnetile"}.`, "success");
+    setStatus(`Export target set to ${radio.value === "kzones" ? "KZones / PlasmaZones" : "Magnetile"}.`, "success");
   };
 }
 
