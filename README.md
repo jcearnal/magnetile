@@ -9,10 +9,9 @@ tile resizing and runtime merged zones.
 
 [![KDE Store](https://img.shields.io/badge/KDE%20Store-download-blue?logo=KDE)](https://www.opendesktop.org/p/2355641/) [![AUR](https://img.shields.io/badge/AUR-kwin--scripts--magnetile-1793D1?logo=archlinux)](https://aur.archlinux.org/packages/kwin-scripts-magnetile) [![Layout Editor](https://img.shields.io/badge/Layout%20Editor-GitHub%20Pages-00856f)](https://jcearnal.github.io/magnetile/)
 
-Magnetile is a GPL-3.0 derivative of KZones. It keeps the core FancyZones-style
-zone workflow that made KZones useful, then extends it for a Wayland-only KDE
-Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
-visual layout editor helper.
+Magnetile keeps a FancyZones-style zone workflow and extends it for a
+Wayland-only KDE Plasma 6 setup with connected resizing, stronger multi-monitor
+behavior, and a visual layout editor helper.
 
 ## Visual Layout Editor
 
@@ -37,62 +36,6 @@ so a newly merged area does not leave older windows hidden underneath.
 Development of the Magnetile-specific changes is AI-assisted. Human review,
 testing, packaging, and licensing responsibility remain with the Magnetile
 contributors.
-
-## Relationship to KZones
-
-Magnetile is not presented as an original clean-room replacement for KZones. It
-is derived from [KZones](https://github.com/gerritdevriese/kzones) and keeps
-KZones attribution in [NOTICE.md](./NOTICE.md). Because KZones is GPL-3.0,
-Magnetile is distributed under GPL-3.0 as well.
-
-The goal is to preserve compatible KZones behavior while making targeted
-improvements for modern Plasma 6 Wayland workflows.
-
-### Preserved KZones Features
-
-Magnetile keeps the original KZones-style workflow and feature set, including:
-
-- FancyZones-style custom layouts made from percentage-based zones.
-- A top-of-screen zone selector while dragging windows.
-- A visual zone overlay while moving windows.
-- Optional edge snapping.
-- Multiple saved layouts.
-- Keyboard shortcuts for moving windows to zones, cycling layouts, switching
-  layouts, moving to neighboring zones, cycling windows in a zone, and snapping
-  windows.
-- Plasma color-scheme aware overlay and selector styling.
-- JSON-based layout configuration.
-
-These features come from the KZones base and are preserved so existing KZones
-users have a familiar workflow.
-
-### New In Magnetile
-
-Compared with the original KZones base, Magnetile adds:
-
-- Fluid connected resizing: adjacent tiled windows resize while a snapped
-  window is manually resized, and later snaps can follow the resized runtime
-  grid.
-- Runtime merged zones: drag near a shared zone edge to temporarily snap across
-  adjacent zones, with an expanded preview and coherent handling for existing
-  windows in the merged area.
-- KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
-- Resolution-independent geometry fixes for multi-monitor layouts, including
-  outputs that do not start at `x=0, y=0`.
-- Per-monitor layout defaults through `monitorLayoutsJson`.
-- Independent active-layout tracking per output and optionally per virtual
-  desktop.
-- Free movement overrides for temporarily dragging a window outside Magnetile's
-  snap grid.
-- A visual layout editor helper for creating, renaming, duplicating, deleting,
-  reordering, previewing, importing, and exporting JSON layouts.
-- Editor support for snapping, padding preview, preview aspect ratios, and
-  saved JSON layout files.
-- Documentation for the current architecture, schema choices, local testing,
-  and known KWin scripted-config limitations.
-
-See `PROJECT_DESIGN.md` for the future-session handoff, including the phased
-runtime merged-zones plan for multi-zone snapping.
 
 ## Features
 
@@ -814,6 +757,62 @@ journalctl --user -u plasma-kwin_wayland -f QT_CATEGORY=kwin_scripting QT_CATEGO
 ### Plasma 5 and X11
 
 Magnetile targets KDE Plasma 6.4+ and Wayland. Plasma 5 and X11 are not supported.
+
+## Relationship to KZones
+
+Magnetile is not presented as an original clean-room replacement for KZones. It
+is derived from [KZones](https://github.com/gerritdevriese/kzones) and keeps
+KZones attribution in [NOTICE.md](./NOTICE.md). Because KZones is GPL-3.0,
+Magnetile is distributed under GPL-3.0 as well.
+
+The goal is to preserve compatible KZones behavior while making targeted
+improvements for modern Plasma 6 Wayland workflows.
+
+### Preserved KZones Features
+
+Magnetile keeps the original KZones-style workflow and feature set, including:
+
+- FancyZones-style custom layouts made from percentage-based zones.
+- A top-of-screen zone selector while dragging windows.
+- A visual zone overlay while moving windows.
+- Optional edge snapping.
+- Multiple saved layouts.
+- Keyboard shortcuts for moving windows to zones, cycling layouts, switching
+  layouts, moving to neighboring zones, cycling windows in a zone, and snapping
+  windows.
+- Plasma color-scheme aware overlay and selector styling.
+- JSON-based layout configuration.
+
+These features come from the KZones base and are preserved so existing KZones
+users have a familiar workflow.
+
+### New In Magnetile
+
+Compared with the original KZones base, Magnetile adds:
+
+- Fluid connected resizing: adjacent tiled windows resize while a snapped
+  window is manually resized, and later snaps can follow the resized runtime
+  grid.
+- Runtime merged zones: drag near a shared zone edge to temporarily snap across
+  adjacent zones, with an expanded preview and coherent handling for existing
+  windows in the merged area.
+- KDE Plasma 6 / KWin 6 Wayland focus with no X11-specific code paths.
+- Resolution-independent geometry fixes for multi-monitor layouts, including
+  outputs that do not start at `x=0, y=0`.
+- Per-monitor layout defaults through `monitorLayoutsJson`.
+- Independent active-layout tracking per output and optionally per virtual
+  desktop.
+- Free movement overrides for temporarily dragging a window outside Magnetile's
+  snap grid.
+- A visual layout editor helper for creating, renaming, duplicating, deleting,
+  reordering, previewing, importing, and exporting JSON layouts.
+- Editor support for snapping, padding preview, preview aspect ratios, and
+  saved JSON layout files.
+- Documentation for the current architecture, schema choices, local testing,
+  and known KWin scripted-config limitations.
+
+See `PROJECT_DESIGN.md` for the future-session handoff, including the phased
+runtime merged-zones plan for multi-zone snapping.
 
 ## License
 
