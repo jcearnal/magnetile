@@ -385,6 +385,14 @@ The helper editor can:
 - Edit zone `x`, `y`, `width`, `height`, optional `color`, and optional custom
   edge snapping fields precisely.
 
+To configure custom edge snapping in the editor, select a zone and use the
+**Top**, **Right**, **Bottom**, and **Left** checkboxes to choose which screen
+edge activates that zone. Set **Snap X %** to the start of the trigger strip
+and **Snap Width %** to its size. For top and bottom edges these values are
+horizontal percentages; for left and right edges they are vertical percentages.
+Leave all edge checkboxes unchecked to use Magnetile's legacy edge snapping for
+that zone.
+
 KWin's generic scripted config window cannot host a full drag/resize editor with
 custom save logic, so the helper keeps the existing KWin config model intact.
 
