@@ -260,16 +260,23 @@
     }
 
     .edge-options {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      display: flex;
+      flex-direction: column;
       gap: 6px;
       grid-column: 1 / -1;
     }
 
-    .edge-options label {
+    .edge-choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+    }
+
+    .edge-choice-grid label {
       display: flex;
       align-items: center;
       gap: 6px;
+      min-width: 0;
     }
 
     .edge-options input {
@@ -388,10 +395,12 @@
         <label>Color <input id="zoneColor" placeholder="#00856f"></label>
         <div class="edge-options" aria-label="Edge-snap activation">
           <p class="fieldset-help"><strong>Edge-snap activation:</strong> optional Magnetile-only trigger area for this zone.</p>
-          <label><input class="snapEdge" type="checkbox" value="top"> Top edge</label>
-          <label><input class="snapEdge" type="checkbox" value="right"> Right edge</label>
-          <label><input class="snapEdge" type="checkbox" value="bottom"> Bottom edge</label>
-          <label><input class="snapEdge" type="checkbox" value="left"> Left edge</label>
+          <div class="edge-choice-grid">
+            <label><input class="snapEdge" type="checkbox" value="top"> Top edge</label>
+            <label><input class="snapEdge" type="checkbox" value="right"> Right edge</label>
+            <label><input class="snapEdge" type="checkbox" value="bottom"> Bottom edge</label>
+            <label><input class="snapEdge" type="checkbox" value="left"> Left edge</label>
+          </div>
         </div>
         <label>Trigger start % <input id="zoneSnapX" type="number" min="0" max="100" step="0.1"></label>
         <label>Trigger size % <input id="zoneSnapWidth" type="number" min="0" max="100" step="0.1"></label>

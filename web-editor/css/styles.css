@@ -421,8 +421,8 @@ main {
 
 .edge-options {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -432,10 +432,19 @@ main {
 }
 
 .fieldset-help {
-  grid-column: 1 / -1;
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.edge-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.edge-choice-grid label {
+  min-width: 0;
 }
 
 .field-help {

@@ -139,10 +139,12 @@
           <fieldset class="edge-options">
             <legend>Edge-snap activation</legend>
             <p class="fieldset-help">Optional Magnetile-only trigger area for this zone.</p>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="top"> Top edge</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="right"> Right edge</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="bottom"> Bottom edge</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="left"> Left edge</label>
+            <div class="edge-choice-grid">
+              <label class="inline"><input class="snapEdge" type="checkbox" value="top"> Top edge</label>
+              <label class="inline"><input class="snapEdge" type="checkbox" value="right"> Right edge</label>
+              <label class="inline"><input class="snapEdge" type="checkbox" value="bottom"> Bottom edge</label>
+              <label class="inline"><input class="snapEdge" type="checkbox" value="left"> Left edge</label>
+            </div>
           </fieldset>
           <label>Trigger start % <input id="zoneSnapX" type="number" min="0" max="100" step="0.1"></label>
           <label>Trigger size % <input id="zoneSnapWidth" type="number" min="0" max="100" step="0.1"></label>
