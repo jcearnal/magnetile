@@ -253,6 +253,23 @@
       width: auto;
     }
 
+    .field-help {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .field-help strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
     label {
       display: grid;
       gap: 4px;
@@ -339,6 +356,13 @@
         </div>
         <label>Snap X % <input id="zoneSnapX" type="number" min="0" max="100" step="0.1"></label>
         <label>Snap Width % <input id="zoneSnapWidth" type="number" min="0" max="100" step="0.1"></label>
+        <p class="field-help">
+          <strong>Custom edge triggers:</strong> edge checkboxes choose which
+          screen edge activates this zone. Snap X is the start of that trigger
+          strip and Snap Width is its size. Top and bottom use horizontal
+          percentages; left and right use vertical percentages. Leave all edge
+          boxes unchecked for the default Magnetile edge snapping behavior.
+        </p>
       </div>
       <h3>JSON</h3>
       <p>
