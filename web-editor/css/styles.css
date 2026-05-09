@@ -203,6 +203,17 @@ main {
   align-items: center;
 }
 
+.editor-snap-controls {
+  align-items: end;
+}
+
+.control-help {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .project-links a,
 .badges span {
   border: 1px solid var(--border);
