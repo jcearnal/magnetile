@@ -137,20 +137,22 @@
           <label>Height % <input id="zoneHeight" type="number" min="0.1" max="100" step="0.1"></label>
           <label>Color <input id="zoneColor" placeholder="#00856f" autocomplete="off"></label>
           <fieldset class="edge-options">
-            <legend>Custom edge triggers</legend>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="top"> Top</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="right"> Right</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="bottom"> Bottom</label>
-            <label class="inline"><input class="snapEdge" type="checkbox" value="left"> Left</label>
+            <legend>Edge-snap activation</legend>
+            <p class="fieldset-help">Optional Magnetile-only trigger area for this zone.</p>
+            <label class="inline"><input class="snapEdge" type="checkbox" value="top"> Top edge</label>
+            <label class="inline"><input class="snapEdge" type="checkbox" value="right"> Right edge</label>
+            <label class="inline"><input class="snapEdge" type="checkbox" value="bottom"> Bottom edge</label>
+            <label class="inline"><input class="snapEdge" type="checkbox" value="left"> Left edge</label>
           </fieldset>
-          <label>Snap X % <input id="zoneSnapX" type="number" min="0" max="100" step="0.1"></label>
-          <label>Snap Width % <input id="zoneSnapWidth" type="number" min="0" max="100" step="0.1"></label>
+          <label>Trigger start % <input id="zoneSnapX" type="number" min="0" max="100" step="0.1"></label>
+          <label>Trigger size % <input id="zoneSnapWidth" type="number" min="0" max="100" step="0.1"></label>
           <p class="field-help">
-            These fields only affect Magnetile edge snapping. Choose which
-            screen edge activates this zone, then set the trigger strip start
-            and size. Top and bottom use horizontal percentages; left and right
-            use vertical percentages. Leave all edges unchecked for legacy edge
-            snapping.
+            Use this when a zone should be selected from a screen edge that is
+            different from where the zone places windows. For example, a
+            fullscreen zone can use the top edge while left and right split
+            zones use the side edges. Start and size describe the active strip
+            along that edge: horizontal for top/bottom, vertical for left/right.
+            Leave every edge unchecked to use the normal Magnetile behavior.
           </p>
         </div>
       </aside>
