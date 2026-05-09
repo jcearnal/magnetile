@@ -14,6 +14,16 @@ zone workflow that made KZones useful, then extends it for a Wayland-only KDE
 Plasma 6 setup with connected resizing, stronger multi-monitor behavior, and a
 visual layout editor helper.
 
+## Visual Layout Editor
+
+Use the hosted editor to create and tune layouts without writing JSON by hand:
+
+[https://jcearnal.github.io/magnetile/](https://jcearnal.github.io/magnetile/)
+
+The editor can import your current Magnetile layout JSON, edit zones visually,
+configure custom edge-snap triggers, and export JSON for Magnetile, KZones, or
+PlasmaZones.
+
 ## What's New In 0.2.0
 
 Magnetile 0.2.0 adds runtime merged zones. While dragging a window, drop near
@@ -141,8 +151,9 @@ to put the window back under Magnetile control.
 Use the standalone browser editor at
 [https://jcearnal.github.io/magnetile/](https://jcearnal.github.io/magnetile/)
 to design layouts without writing JSON by hand. The editor previews padding,
-screen ratios, and zone snapping, then exports the shared layout JSON schema
-used by Magnetile, KZones, and
+screen ratios, zone alignment snapping, and Magnetile custom edge-snap
+triggers, then exports the shared layout JSON schema used by Magnetile, KZones,
+and
 [PlasmaZones](https://github.com/fuddlesworth/PlasmaZones).
 
 ![](./media/editor.gif)
@@ -330,7 +341,9 @@ zone, to return it to normal Magnetile control.
 
 You can define your own layouts in the **Layouts** tab in the script settings.
 `layoutsJson` is still the source of truth, but you do not have to hand-edit it
-from scratch.
+from scratch. The recommended workflow is to copy the JSON into the hosted
+editor, make changes visually, then paste the exported Magnetile JSON back into
+the settings field.
 
 #### Visual layout editor
 
