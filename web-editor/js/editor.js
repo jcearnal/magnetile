@@ -1,5 +1,5 @@
 import { exportLayouts, formatDescriptions } from "./export.js";
-import { clamp, deepClone, layoutFileName, normalizeZone, validateLayouts } from "./utils.js";
+import { clamp, deepClone, layoutFileName, normalizeZone, normalizeSnapFields, validateLayouts } from "./utils.js";
 
 const fallbackExamples = {
   priority: [
@@ -67,6 +67,29 @@ function activeLayout() {
 
 function activeZone() {
   return activeLayout().zones[zoneIndex] || null;
+}
+
+function snapEdges(zone) {
+  if (!zone || zone.snapEdge === undefined) return [];
+  return Array.isArray(zone.snapEdge) ? zone.snapEdge : [zone.snapEdge];
+}
+
+function writeSnapFields() {
+  const zone = activeZone();
+  if (!zone) return;
+
+  const edges = [...document.querySelectorAll(".snapEdge:checked")].map((input) => input.value);
+  if (edges.length === 0) {
+    delete zone.snapEdge;
+    delete zone.snapX;
+    delete zone.snapWidth;
+  } else {
+    zone.snapEdge = edges.length === 1 ? edges[0] : edges;
+    zone.snapX = Number(el("zoneSnapX").value) || 0;
+    zone.snapWidth = Number(el("zoneSnapWidth").value) || 100;
+  }
+
+  normalizeSnapFields(zone);
 }
 
 function previewSize() {
@@ -265,9 +288,13 @@ function render() {
   });
 
   const zone = activeZone();
-  for (const id of ["zoneX", "zoneY", "zoneWidth", "zoneHeight", "zoneColor"]) {
+  for (const id of ["zoneX", "zoneY", "zoneWidth", "zoneHeight", "zoneColor", "zoneSnapX", "zoneSnapWidth"]) {
     el(id).disabled = !zone;
   }
+  document.querySelectorAll(".snapEdge").forEach((input) => {
+    input.disabled = !zone;
+    input.checked = zone ? snapEdges(zone).includes(input.value) : false;
+  });
 
   if (zone) {
     el("zoneX").value = zone.x;
@@ -275,6 +302,8 @@ function render() {
     el("zoneWidth").value = zone.width;
     el("zoneHeight").value = zone.height;
     el("zoneColor").value = zone.color || "";
+    el("zoneSnapX").value = zone.snapX !== undefined ? zone.snapX : 0;
+    el("zoneSnapWidth").value = zone.snapWidth !== undefined ? zone.snapWidth : 100;
   }
 
   refreshJson();
@@ -488,6 +517,20 @@ el("zoneColor").oninput = (event) => {
   normalizeZone(zone);
   render();
 };
+
+document.querySelectorAll(".snapEdge").forEach((input) => {
+  input.onchange = () => {
+    writeSnapFields();
+    render();
+  };
+});
+
+for (const id of ["zoneSnapX", "zoneSnapWidth"]) {
+  el(id).oninput = () => {
+    writeSnapFields();
+    render();
+  };
+}
 
 el("loadJson").onclick = () => {
   try {

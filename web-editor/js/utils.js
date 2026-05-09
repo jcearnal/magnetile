@@ -20,6 +20,35 @@ export function normalizeZone(zone) {
     delete zone.color;
   }
 
+  normalizeSnapFields(zone);
+
+  return zone;
+}
+
+export function normalizeSnapFields(zone) {
+  const validEdges = new Set(["top", "right", "bottom", "left"]);
+  const rawEdges = Array.isArray(zone.snapEdge) ? zone.snapEdge : (zone.snapEdge ? [zone.snapEdge] : []);
+  const edges = rawEdges
+    .map((edge) => String(edge).toLowerCase())
+    .filter((edge) => validEdges.has(edge));
+
+  if (edges.length === 0) {
+    delete zone.snapEdge;
+    delete zone.snapX;
+    delete zone.snapWidth;
+    return zone;
+  }
+
+  zone.snapEdge = edges.length === 1 ? edges[0] : edges;
+
+  if (zone.snapX !== undefined) {
+    zone.snapX = Number(clamp(Number(zone.snapX) || 0, 0, 100).toFixed(1));
+  }
+
+  if (zone.snapWidth !== undefined) {
+    zone.snapWidth = Number(clamp(Number(zone.snapWidth) || 0, 0, 100).toFixed(1));
+  }
+
   return zone;
 }
 

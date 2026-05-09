@@ -419,6 +419,25 @@ main {
   gap: 8px;
 }
 
+.edge-options {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.field-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .status,
 .format-help {
   min-height: 22px;
