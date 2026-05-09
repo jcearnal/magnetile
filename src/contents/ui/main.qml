@@ -15,6 +15,8 @@ Item {
     property bool moved: false
     property bool resizing: false
     property bool freeMoving: false
+    property var dragScreen: null
+    property int dragLayout: -1
     property var clientArea: new Object()
     property var cachedClientArea: new Object()
     property var displaySize: new Object()
@@ -561,6 +563,145 @@ Item {
         return config.layouts[clampLayoutIndex(layoutIndex)].zones[zoneIndex] || {};
     }
 
+    function targetAnchorZone(target) {
+        if (!target || target.zone === undefined)
+            return {};
+
+        return configuredZoneForTarget(target.layout, target.zone);
+    }
+
+    function snapEdgesForZone(zone) {
+        const validEdges = {
+            "top": true,
+            "bottom": true,
+            "left": true,
+            "right": true
+        };
+        const configured = zone ? zone.snapEdge : undefined;
+        const values = Array.isArray(configured) ? configured : (configured !== undefined && configured !== null ? [configured] : []);
+        const edges = [];
+        for (let i = 0; i < values.length; i++) {
+            const edge = String(values[i]).toLowerCase();
+            if (validEdges[edge])
+                edges.push(edge);
+        }
+        return edges;
+    }
+
+    function hasCustomSnapEdges(target) {
+        return snapEdgesForZone(targetAnchorZone(target)).length > 0;
+    }
+
+    function customSnapTriggerRect(zone, edge, area, triggerDistance) {
+        if (!zone || !area)
+            return null;
+
+        const start = Math.min(100, Math.max(0, Number(zone.snapX !== undefined ? zone.snapX : 0) || 0));
+        const width = Math.min(100 - start, Math.max(0, Number(zone.snapWidth !== undefined ? zone.snapWidth : 100) || 0));
+        if (width <= 0)
+            return null;
+
+        if (edge === "top" || edge === "bottom") {
+            const x = area.x + area.width * start / 100;
+            const rectWidth = area.width * width / 100;
+            return {
+                "x": x,
+                "y": edge === "top" ? area.y - triggerDistance : area.y + area.height - triggerDistance,
+                "width": rectWidth,
+                "height": triggerDistance * 2
+            };
+        }
+
+        if (edge === "left" || edge === "right") {
+            const y = area.y + area.height * start / 100;
+            const rectHeight = area.height * width / 100;
+            return {
+                "x": edge === "left" ? area.x - triggerDistance : area.x + area.width - triggerDistance,
+                "y": y,
+                "width": triggerDistance * 2,
+                "height": rectHeight
+            };
+        }
+
+        return null;
+    }
+
+    function pointInCustomSnapTrigger(target, point, area, triggerDistance) {
+        const zone = targetAnchorZone(target);
+        const edges = snapEdgesForZone(zone);
+        for (let i = 0; i < edges.length; i++) {
+            const rect = customSnapTriggerRect(zone, edges[i], area, triggerDistance);
+            if (rect && Utils.isPointInside(point.x, point.y, rect))
+                return true;
+        }
+        return false;
+    }
+
+    function customSnapTargetAtPoint(layoutIndex, screen, desktop, activity, point) {
+        if (!config.enableEdgeSnapping)
+            return null;
+
+        const area = workspaceArea(screen || activeScreen || Workspace.activeScreen, desktop || Workspace.currentDesktop);
+        const triggerDistance = (config.edgeSnappingTriggerDistance + 1) * 10;
+        const nearEdges = {
+            "left": point.x <= area.x + triggerDistance,
+            "right": point.x >= area.x + area.width - triggerDistance,
+            "top": point.y <= area.y + triggerDistance,
+            "bottom": point.y >= area.y + area.height - triggerDistance
+        };
+        if (!nearEdges.left && !nearEdges.right && !nearEdges.top && !nearEdges.bottom)
+            return null;
+
+        let matchedTarget = null;
+        const targets = effectiveZoneTargets(layoutIndex, screen, desktop, activity);
+        targets.forEach((target) => {
+            const edges = snapEdgesForZone(targetAnchorZone(target));
+            let hasNearCustomEdge = false;
+            for (let i = 0; i < edges.length; i++) {
+                if (nearEdges[edges[i]]) {
+                    hasNearCustomEdge = true;
+                    break;
+                }
+            }
+
+            if (hasNearCustomEdge && pointInCustomSnapTrigger(target, point, area, triggerDistance))
+                matchedTarget = target;
+        });
+        return matchedTarget;
+    }
+
+    function smallerHoverTarget(candidate, current) {
+        if (!candidate)
+            return current;
+
+        if (!current)
+            return candidate;
+
+        const candidateGeometry = targetGeometry(candidate);
+        const currentGeometry = targetGeometry(current);
+        if (!candidateGeometry || !currentGeometry)
+            return candidate;
+
+        const candidateArea = candidateGeometry.width * candidateGeometry.height;
+        const currentArea = currentGeometry.width * currentGeometry.height;
+        if (candidateArea <= currentArea)
+            return candidate;
+
+        return current;
+    }
+
+    function overlayHoverTargetAtPoint(layoutIndex, screen, desktop, activity, point) {
+        const targets = effectiveZoneTargets(layoutIndex, screen, desktop, activity);
+        let hoveredTarget = null;
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            const geometry = targetGeometry(target);
+            if (geometry && Utils.isPointInside(point.x, point.y, geometry))
+                hoveredTarget = smallerHoverTarget(target, hoveredTarget);
+        }
+        return hoveredTarget;
+    }
+
     function targetGeometry(target) {
         if (!target)
             return null;
@@ -762,6 +903,12 @@ Item {
     }
 
     function resolveDropTarget(screen) {
+        const customEdgeScreen = dragScreen || screen || activeScreen || Workspace.activeScreen;
+        const customEdgeLayout = validLayoutIndex(dragLayout) ? dragLayout : currentLayout;
+        const customEdgeTarget = customSnapTargetAtPoint(customEdgeLayout, customEdgeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos);
+        if (customEdgeTarget)
+            return customEdgeTarget;
+
         if (!highlightedTarget)
             return null;
 
@@ -1190,7 +1337,7 @@ Item {
             return;
         }
 
-        const geometry = configuredTargetGeometry(target);
+        const geometry = targetGeometry(target);
         if (!geometry)
             return;
 
@@ -1277,6 +1424,9 @@ Item {
     }
 
     function moveClientsOverlappingTarget(activeClient, target, geometry) {
+        if (!target || target.type !== "merge")
+            return;
+
         const targetZones = normalizeZoneList(target.layout, target.zones);
         if (targetZones.length === 0 || !geometry)
             return;
@@ -1766,7 +1916,14 @@ Item {
 
             if (targetZoneSet[i]) {
                 if (targetZones.length === 1) {
-                    storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, finalGeometry);
+                    const oldZone = rectEdges(oldZoneGeometry);
+                    const nextLeft = changed.left ? newTarget.left : oldZone.left;
+                    const nextTop = changed.top ? newTarget.top : oldZone.top;
+                    const nextRight = changed.right ? newTarget.right : oldZone.right;
+                    const nextBottom = changed.bottom ? newTarget.bottom : oldZone.bottom;
+                    const nextWidth = Math.max(minSize, nextRight - nextLeft);
+                    const nextHeight = Math.max(minSize, nextBottom - nextTop);
+                    storeRuntimeZoneGeometry(layoutIndex, i, snapshot.output, snapshot.desktop, snapshot.activity, roundedRect(nextLeft, nextTop, nextWidth, nextHeight));
                     continue;
                 }
 
@@ -2066,6 +2223,8 @@ Item {
                 if (client.move && checkFilter(client)) {
                     refreshClientAreaForClient(client);
                     cachedClientArea = clientArea;
+                    dragScreen = activeScreen;
+                    dragLayout = currentLayout;
                     if (config.fadeWindowsWhileMoving) {
                         for (let i = 0; i < Workspace.stackingOrder.length; i++) {
                             const client = Workspace.stackingOrder[i];
@@ -2168,6 +2327,8 @@ Item {
             moved = false;
             resizing = false;
             freeMoving = false;
+            dragScreen = null;
+            dragLayout = -1;
             updateDebugDialog();
         }
 
@@ -2356,21 +2517,23 @@ Item {
                 repeat: true
                 onTriggered: {
                     refreshClientArea();
+                    if (moving && dragScreen && validLayoutIndex(dragLayout) && customSnapTargetAtPoint(dragLayout, dragScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos)) {
+                        refreshClientArea(dragScreen);
+                        currentLayout = dragLayout;
+                    }
                     resizeDialogToClientArea(mainDialog);
                     mainItem.refreshTargets();
                     let hoveringZone = -1;
                     let hoveringTarget = null;
                     // zone overlay
                     const currentZones = repeaterLayout.itemAt(currentLayout);
-                    if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded && currentZones)
-                        currentZones.repeater.model.forEach((target, targetIndex) => {
-                        const targetItem = currentZones.repeater.itemAt(targetIndex);
-                        if (targetItem && Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, target.geometry)) {
+                    if (config.enableZoneOverlay && showZoneOverlay && !zoneSelector.expanded && currentZones) {
+                        const target = overlayHoverTargetAtPoint(currentLayout, activeScreen, Workspace.currentDesktop, Workspace.currentActivity, Workspace.cursorPos);
+                        if (target) {
                             hoveringZone = target.zone;
                             hoveringTarget = target;
                         }
-
-                    });
+                    }
 
                     // zone selector
                     if (config.enableZoneSelector) {
@@ -2396,11 +2559,40 @@ Item {
                     // edge snapping
                     if (config.enableEdgeSnapping) {
                         const triggerDistance = (config.edgeSnappingTriggerDistance + 1) * 10;
-                        if (Workspace.cursorPos.x <= clientArea.x + triggerDistance || Workspace.cursorPos.x >= clientArea.x + clientArea.width - triggerDistance || Workspace.cursorPos.y <= clientArea.y + triggerDistance || Workspace.cursorPos.y >= clientArea.y + clientArea.height - triggerDistance) {
+                        const cursorPoint = Workspace.cursorPos;
+                        const nearEdges = {
+                            "left": cursorPoint.x <= clientArea.x + triggerDistance,
+                            "right": cursorPoint.x >= clientArea.x + clientArea.width - triggerDistance,
+                            "top": cursorPoint.y <= clientArea.y + triggerDistance,
+                            "bottom": cursorPoint.y >= clientArea.y + clientArea.height - triggerDistance
+                        };
+                        if (nearEdges.left || nearEdges.right || nearEdges.top || nearEdges.bottom) {
                             const padding = config.layouts[currentLayout].padding || 0;
                             const halfPadding = padding / 2;
 	                            const targets = effectiveZoneTargets(currentLayout, activeScreen, Workspace.currentDesktop, Workspace.currentActivity);
+                            let customEdgeIntent = false;
+                            targets.forEach((target) => {
+                                const edges = snapEdgesForZone(targetAnchorZone(target));
+                                for (let i = 0; i < edges.length; i++) {
+                                    if (nearEdges[edges[i]]) {
+                                        customEdgeIntent = true;
+                                        break;
+                                    }
+                                }
+                            });
+                            if (customEdgeIntent) {
+                                hoveringZone = -1;
+                                hoveringTarget = null;
+                            }
 	                            targets.forEach((target) => {
+                                if (hasCustomSnapEdges(target)) {
+                                    if (pointInCustomSnapTrigger(target, cursorPoint, clientArea, triggerDistance)) {
+                                        hoveringZone = target.zone;
+                                        hoveringTarget = target;
+                                    }
+                                    return;
+                                }
+
 	                                const geometry = targetGeometry(target);
 	                                if (!geometry)
 	                                    return;
@@ -2430,7 +2622,7 @@ Item {
                                     expandedZoneGeometry.height += halfPadding;
 
 	                                // check if cursor is inside the zone geometry
-	                                if (Utils.isPointInside(Workspace.cursorPos.x, Workspace.cursorPos.y, expandedZoneGeometry)) {
+	                                if (Utils.isPointInside(cursorPoint.x, cursorPoint.y, expandedZoneGeometry)) {
 	                                    hoveringZone = target.zone;
 	                                    hoveringTarget = target;
 	                                }

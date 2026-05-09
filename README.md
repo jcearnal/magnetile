@@ -178,6 +178,22 @@ Optional edge snapping lets a window target nearby zones when the pointer is
 close to a monitor edge. Disable KDE's built-in edge snap first if the two
 behaviors conflict.
 
+Zones can optionally define custom edge trigger regions with `snapEdge`,
+`snapX`, and `snapWidth`. This is useful for overlapping layouts where the
+screen edge that selects a zone should differ from the zone's placement
+geometry.
+
+For example, an overlapping fullscreen plus left/right split layout can use the
+top edge for fullscreen and the side edges for the split zones:
+
+```json
+[
+  { "x": 0, "y": 0, "width": 100, "height": 100, "snapEdge": "top" },
+  { "x": 0, "y": 0, "width": 50, "height": 100, "snapEdge": "left" },
+  { "x": 50, "y": 0, "width": 50, "height": 100, "snapEdge": "right" }
+]
+```
+
 ![](./media/edgesnapping.gif)
 
 ### Multiple Layouts
@@ -366,7 +382,8 @@ The helper editor can:
 - Snap zone edges to a grid, screen edges, or other zones.
 - Preview common screen ratios and custom preview sizes.
 - Preview layout padding on the canvas.
-- Edit zone `x`, `y`, `width`, `height`, and optional `color` precisely.
+- Edit zone `x`, `y`, `width`, `height`, optional `color`, and optional custom
+  edge snapping fields precisely.
 
 KWin's generic scripted config window cannot host a full drag/resize editor with
 custom save logic, so the helper keeps the existing KWin config model intact.
@@ -518,12 +535,25 @@ Each **zone** object supports:
 
 - `x`, `y`: position of the top left corner of the zone in screen percentage
 - `width`, `height`: size of the zone in screen percentage
+- `snapEdge`: screen edge or edges that activate this zone during edge snapping
+  (optional). Valid values are `top`, `bottom`, `left`, and `right`; use either
+  a string or an array of strings.
+- `snapX`: start of the custom edge trigger strip in screen percentage
+  (optional, default `0`). For `top`/`bottom`, this is horizontal. For
+  `left`/`right`, this is vertical.
+- `snapWidth`: width of the custom edge trigger strip in screen percentage
+  (optional, default `100`). For `top`/`bottom`, this is horizontal. For
+  `left`/`right`, this is vertical.
 - `applications`: an array of window classes that should snap to this zone when launched (optional)
 - `indicator`: an object containing the indicator settings (optional)
   - `position`: default is `center`, other options are `top-left`, `top-center`, `top-right`, `right-center`, `bottom-right`, `bottom-center`, `bottom-left`, `left-center`
   - `margin`: an object containing the margin for the indicator
     - `top`, `right`, `bottom`, `left`: margin in pixels
 - `color`: a color name or hex value to tint the zone with (optional)
+
+Custom edge snapping only changes the trigger region used while dragging near a
+screen edge. The zone still places windows using its normal `x`, `y`, `width`,
+and `height`, including runtime resized or merged geometry.
 
 ### Per-Monitor Layouts
 

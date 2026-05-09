@@ -46,6 +46,39 @@ The package root is `src/`.
 
 The code intentionally remains close to KZones. Avoid large rewrites unless they are necessary.
 
+## Active Runtime Source
+
+Before testing runtime behavior, verify which Magnetile source KWin is actually
+running. The user's normal working session may run the installed package at:
+
+```text
+~/.local/share/kwin/scripts/magnetile/
+```
+
+That installed package can differ from this checkout's `src/` tree. Loading
+`src/contents/ui/main.qml` directly with `loadDeclarativeScript` changes the
+runtime source for the active session and can make behavior differ from the
+user's installed Magnetile package. In May 2026, this caused connected resize to
+appear broken because the checkout and installed package had different resize
+logic.
+
+Future development sessions must decide explicitly which source is under test:
+
+- To test the installed/user-facing package, use KWin's plugin enable/reconfigure
+  flow and inspect `~/.local/share/kwin/scripts/magnetile/`.
+- To test checkout changes, install or reload the checkout intentionally, and
+  tell the user that the running KWin script now comes from the checkout.
+- Do not assume live behavior matches this checkout until logs confirm the
+  loaded script path.
+
+Useful checks:
+
+```bash
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.isScriptLoaded magnetile
+journalctl --user -u plasma-kwin_wayland --since '5 minutes ago' --no-pager | rg 'Magnetile: Loading script|Loading script'
+diff -u src/contents/ui/main.qml ~/.local/share/kwin/scripts/magnetile/contents/ui/main.qml
+```
+
 ## Layout Editing Architecture
 
 `layoutsJson` remains the source of truth for layouts. The schema is still a
@@ -125,6 +158,12 @@ Important details:
 - Always include the client area offset (`area.x`, `area.y`) when converting percentage zones to absolute geometry.
 - Use `Workspace.clientArea(KWin.FullScreenArea, screen, Workspace.currentDesktop)` for current zone behavior.
 - Use tolerant geometry matching. Exact equality is fragile with Wayland scaling and KWin rounding.
+- Optional zone `snapEdge`, `snapX`, and `snapWidth` fields only customize
+  edge-snap trigger regions. They must not change placement geometry,
+  shortcuts, connected resize, runtime resized geometry, merged zone storage,
+  snap-all, or layout switching. Overlay hover continues to use target geometry;
+  when targets overlap, the smaller containing target wins so a fullscreen zone
+  does not mask narrower zones.
 
 ## Window State
 
